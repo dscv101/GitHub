@@ -141,17 +141,180 @@ clean:
 generations:
     sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
 
-# Git status with jujutsu
+# ============================================================================
+# Jujutsu SCM Integration
+# ============================================================================
+
+# Check if jujutsu is installed and available
+_jj-check-install:
+    #!/usr/bin/env bash
+    if ! command -v jj &> /dev/null; then
+        echo "❌ Error: Jujutsu (jj) is not installed or not in PATH"
+        echo "💡 Install jujutsu: https://github.com/martinvonz/jj#installation"
+        exit 1
+    fi
+
+# Check if current directory is a jujutsu repository
+_jj-check-repo:
+    #!/usr/bin/env bash
+    if ! jj root &> /dev/null; then
+        echo "❌ Error: Not in a jujutsu repository"
+        echo "💡 Initialize with: just jj-init"
+        echo "💡 Or navigate to a jujutsu repository directory"
+        exit 1
+    fi
+
+# Show help for all jujutsu commands
+jj-help:
+    @echo "🔧 Jujutsu SCM Commands Available:"
+    @echo ""
+    @echo "Repository Management:"
+    @echo "  jj-init           Initialize a new jujutsu repository"
+    @echo "  jj-add [pattern]  Add files to working copy (default: all files)"
+    @echo "  jj-commit [msg]   Create a commit with optional message"
+    @echo ""
+    @echo "Navigation & History:"
+    @echo "  jj-checkout <rev> Switch to a different revision"
+    @echo "  jj-branch         Manage branches (create/list)"
+    @echo "  jj-status         Show working copy status"
+    @echo "  jj-log [limit]    Display commit history (default: 10 commits)"
+    @echo "  jj-diff [rev]     Show differences (default: working copy)"
+    @echo ""
+    @echo "Remote Operations:"
+    @echo "  jj-push [remote]  Push to remote repository"
+    @echo "  jj-pull [remote]  Pull from remote repository"
+    @echo ""
+    @echo "💡 Use 'just --show <command>' for detailed help on any command"
+
+# Initialize a new jujutsu repository
+jj-init:
+    @just _jj-check-install
+    @echo "🚀 Initializing jujutsu repository..."
+    jj init
+    @echo "✅ Jujutsu repository initialized successfully!"
+
+# Add files to working copy with optional pattern
+jj-add pattern="." :
+    @just _jj-check-install
+    @just _jj-check-repo
+    @echo "📁 Adding files: {{pattern}}"
+    jj file add "{{pattern}}"
+    @echo "✅ Files added to working copy"
+
+# Create a commit with optional message
+jj-commit message="":
+    @just _jj-check-install
+    @just _jj-check-repo
+    #!/usr/bin/env bash
+    if [ -z "{{message}}" ]; then
+        echo "💬 Creating commit (editor will open for message)..."
+        jj commit
+    else
+        echo "💬 Creating commit with message: {{message}}"
+        jj commit -m "{{message}}"
+    fi
+    echo "✅ Commit created successfully!"
+
+# Switch to a different revision with validation
+jj-checkout revision:
+    @just _jj-check-install
+    @just _jj-check-repo
+    @echo "🔄 Switching to revision: {{revision}}"
+    jj checkout "{{revision}}"
+    @echo "✅ Switched to revision: {{revision}}"
+
+# Manage branches (create new or list existing)
+jj-branch action="list" name="":
+    @just _jj-check-install
+    @just _jj-check-repo
+    #!/usr/bin/env bash
+    case "{{action}}" in
+        "create")
+            if [ -z "{{name}}" ]; then
+                echo "❌ Error: Branch name required for create action"
+                echo "💡 Usage: just jj-branch create my-branch-name"
+                exit 1
+            fi
+            echo "🌿 Creating branch: {{name}}"
+            jj branch create "{{name}}"
+            echo "✅ Branch '{{name}}' created successfully!"
+            ;;
+        "list"|"")
+            echo "🌿 Listing branches:"
+            jj branch list
+            ;;
+        *)
+            echo "❌ Error: Unknown action '{{action}}'"
+            echo "💡 Usage: just jj-branch [list|create] [name]"
+            exit 1
+            ;;
+    esac
+
+# Show working copy status (enhanced version of original)
+jj-status:
+    @just _jj-check-install
+    @just _jj-check-repo
+    @echo "📊 Working copy status:"
+    jj status
+
+# Display formatted commit history with optional limit
+jj-log limit="10":
+    @just _jj-check-install
+    @just _jj-check-repo
+    @echo "📜 Commit history (last {{limit}} commits):"
+    jj log --limit {{limit}}
+
+# Show differences with optional revision parameter
+jj-diff revision="":
+    @just _jj-check-install
+    @just _jj-check-repo
+    #!/usr/bin/env bash
+    if [ -z "{{revision}}" ]; then
+        echo "🔍 Showing working copy differences:"
+        jj diff
+    else
+        echo "🔍 Showing differences for: {{revision}}"
+        jj diff -r "{{revision}}"
+    fi
+
+# Push to remote repository with validation
+jj-push remote="origin" branch="":
+    @just _jj-check-install
+    @just _jj-check-repo
+    #!/usr/bin/env bash
+    if [ -z "{{branch}}" ]; then
+        echo "🚀 Pushing to {{remote}}..."
+        jj git push --remote "{{remote}}"
+    else
+        echo "🚀 Pushing branch '{{branch}}' to {{remote}}..."
+        jj git push --remote "{{remote}}" --branch "{{branch}}"
+    fi
+    echo "✅ Push completed successfully!"
+
+# Pull from remote repository with conflict detection
+jj-pull remote="origin":
+    @just _jj-check-install
+    @just _jj-check-repo
+    @echo "⬇️ Pulling from {{remote}}..."
+    jj git fetch --remote "{{remote}}"
+    @echo "✅ Pull completed successfully!"
+    @echo "💡 Use 'just jj-status' to check for any conflicts"
+
+# Legacy aliases for backward compatibility
+# Git status with jujutsu (legacy - use jj-status instead)
 status:
-    jj st
+    @echo "⚠️  'just status' is deprecated, use 'just jj-status' instead"
+    @just jj-status
 
-# Git log with jujutsu
+# Git log with jujutsu (legacy - use jj-log instead)  
 log:
-    jj ls
+    @echo "⚠️  'just log' is deprecated, use 'just jj-log' instead"
+    @just jj-log
 
-# Git diff with jujutsu
+# Git diff with jujutsu (legacy - use jj-diff instead)
 diff:
-    jj d
+    @echo "⚠️  'just diff' is deprecated, use 'just jj-diff' instead"
+    @just jj-diff
 
 # Initialize secrets (run once after install)
 init-secrets:

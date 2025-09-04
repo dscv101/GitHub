@@ -106,9 +106,36 @@ deadnix         # Find dead code
 
 ### Common Commands
 
-- JJ status: `jj st`
-- JJ log: `jj ls`
-- JJ diff: `jj d`
+The justfile includes comprehensive Jujutsu SCM integration with error handling and validation:
+
+```bash
+# Show all available jj commands
+just jj-help
+
+# Repository management
+just jj-init                    # Initialize jujutsu repository
+just jj-add [pattern]           # Add files (default: all)
+just jj-commit [message]        # Create commit
+
+# Navigation and history
+just jj-status                  # Show working copy status
+just jj-log [limit]             # Show commit history (default: 10)
+just jj-diff [revision]         # Show differences
+just jj-checkout <revision>     # Switch revisions
+just jj-branch [action] [name]  # Manage branches
+
+# Remote operations
+just jj-push [remote] [branch]  # Push to remote
+just jj-pull [remote]           # Pull from remote
+```
+
+**Legacy commands** (deprecated, use jj-* versions instead):
+
+- `just status` → `just jj-status`
+- `just log` → `just jj-log`  
+- `just diff` → `just jj-diff`
+
+📖 **Full documentation**: [docs/jujutsu_integration.md](docs/jujutsu_integration.md)
 
 ## Migration from Old Structure
 
