@@ -1,81 +1,48 @@
 {
-  description = "Blazar NixOS flake (Wayland/Niri, NVIDIA GBM, HM, sops-nix, disko, impermanence)";
+  description = "Example NixOS + Home Manager flake (fixed skeleton)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-parts.url = "github:hercules-ci/flake-parts";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    home-manager.url = "github:nix-community/home-manager/release-24.05";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    home-manager = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    # Optional extras you mentioned
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
 
-    sops-nix = {
-      url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
 
-    impermanence = {
-      url = "github:nix-community/impermanence";
-    };
-
-    disko = {
-      url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    fenix.url = "github:nix-community/fenix";
+    fenix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ self, nixpkgs, flake-parts, home-manager, sops-nix, impermanence, disko, fenix, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" ];
-
-      perSystem = { system, pkgs, ... }: {
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [ git nixfmt-classic just ];
-        };
-      };
-
-      flake = {
-        nixosConfigurations = {
-          blazar = let
-            system = "x86_64-linux";
-            pkgs = import nixpkgs {
-              inherit system;
-              config.allowUnfree = true;
-            };
-          in nixpkgs.lib.nixosSystem {
-            inherit system;
-            specialArgs = { inherit inputs; };
-            modules = [
-              # Base + host modules
-              ./nixos/common.nix
-              ./hosts/blazar/hardware.nix
-              ./hosts/blazar/disko.nix
-              ./hosts/blazar/default.nix
-
-              # Third-party modules
-              disko.nixosModules.disko
-              home-manager.nixosModules.home-manager
-              sops-nix.nixosModules.sops
-              impermanence.nixosModules.impermanence
-
-              # Workaround override for HM oneshot service restart
-              ./nixos/overrides/home-manager-service.nix
-
-              # Home-Manager wiring
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-                home-manager.users.dscv = import ./home/dscv;
-              }
-            ];
-          };
-        };
-      };
+  outputs = { self, nixpkgs, home-manager, ... }@inputs:
+  let
+    system = "x86_64-linux";
+    lib = nixpkgs.lib;
+    pkgs = import nixpkgs { inherit system; };
+  in
+  {
+    # simple dev shell so `flake check` has something to evaluate
+    devShells.${system}.default = pkgs.mkShell {
+      packages = with pkgs; [ nixpkgs-fmt git ];
     };
+
+    nixosConfigurations.blazar = lib.nixosSystem {
+      inherit system;
+      modules = [
+        ./nixos/common.nix
+        ./hosts/blazar/default.nix
+
+        # Home Manager as a NixOS module
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+          home-manager.users.dscv = import ./home/dscv/default.nix;
+        }
+      ];
+    };
+  };
 }
