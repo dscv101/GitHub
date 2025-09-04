@@ -258,7 +258,7 @@ in {
   };
 
   # Swaylock-effects (lockscreen), swayidle policy
-  programs.swaylock.enable = true;
+  # Note: Using swaylock-effects package instead of programs.swaylock to avoid conflicts
   services.swayidle = {
     enable = true;
     events = [
