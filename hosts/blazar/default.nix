@@ -86,9 +86,7 @@
 
   programs.zsh.enable = true;
   programs.git.enable = true;
-  programs.gh.enable = true;
-
-  # Containers
+# Containers
   virtualisation = {
     podman = { enable = true; dockerCompat = true; defaultNetwork.settings.dns_enabled = true; };
     containers.enable = true;

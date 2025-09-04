@@ -20,10 +20,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    impermanence = {
-      url = "github:nix-community/impermanence";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    impermanence = { url = "github:nix-community/impermanence"; };
   };
 
   outputs = inputs@{ self, nixpkgs, flake-parts, home-manager, sops-nix, disko, impermanence, ... }:
