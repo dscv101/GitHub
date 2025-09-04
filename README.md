@@ -1,16 +1,14 @@
-# Updated Nix Flake Template
+# nyx-updated skeleton
 
-This repo demonstrates the fixes discussed:
-- Escapes Bash `${…}` expansions in the flake `formatter` script (`''${1-}`).
-- Provides an **eval-safe NixOS** configuration (`blazar`) with a tmpfs `/` so `nix flake check` can evaluate in CI without host disks.
-- Uses a minimal Home Manager user `dscv` and avoids problematic VS Code extension attribute names.
+This repo skeleton is fully formatted for Alejandra and includes:
+- `formatter` output for `nix fmt` that accepts `-- --check`.
+- A minimal, eval-safe NixOS config (`nixos/hosts/blazar.nix`) that uses a tmpfs `/`.
+- Placeholder modules/files matching your paths so the formatter sees them.
 
-## Quick use
+## Commands
 
 ```bash
-nix fmt -- --check
-nix flake check
-nix develop
+nix fmt -- --check     # verify formatting
+nix fmt                # apply formatting
+nix flake check        # eval NixOS config (safe minimal config)
 ```
-
-To adapt to your real host, replace the `fileSystems."/"` tmpfs with your actual root filesystem or your disko config, and extend `home/dscv/default.nix` as needed.

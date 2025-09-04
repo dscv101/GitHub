@@ -1,84 +1,25 @@
 {
-  description = "Updated repo: fixed formatter quoting, eval-safe NixOS config, minimal HM setup";
+  description = "Updated, formatted flake with safe formatter and eval-safe NixOS config";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    home-manager.url = "github:nix-community/home-manager/release-24.05";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs";
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+  inputs.flake-parts.url = "github:hercules-ci/flake-parts";
 
-  outputs = inputs@{ self, nixpkgs, flake-parts, home-manager, ... }:
+  outputs = inputs @ { self, nixpkgs, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "aarch64-linux" ];
+      systems = [ "x86_64-linux" ];
 
-      perSystem = { pkgs, system, ... }: {
-        # nix fmt
-        formatter = pkgs.writeShellApplication {
-          name = "fmt";
-          runtimeInputs = [ pkgs.alejandra ];
-          text = ''
-            set -euo pipefail
+      imports = [
+        ./parts/fmt.nix
+      ];
 
-            # Drop a literal "--" if it shows up (nix can pass it before forwarding args)
-            if [ "''${1-}" = "--" ]; then
-              shift
-            fi
-
-            # If no paths were passed, format repo root; otherwise forward
-            has_path=false
-            for a in "$@"; do
-              case "$a" in
-                -*) ;;
-                *) has_path=true ;;
-              esac
-            done
-
-            if [ "$has_path" = false ]; then
-              exec alejandra "$@" .
-            else
-              exec alejandra "$@"
-            fi
-          '';
-        };
-
-        # simple dev shell
-        devShells.default = pkgs.mkShell {
-          packages = [ pkgs.git pkgs.alejandra ];
-        };
-
-        # placeholder package to make `nix build` work
-        packages.default = pkgs.hello;
+      perSystem = { pkgs, ... }: {
+        devShells.default = pkgs.mkShell { packages = [ pkgs.alejandra pkgs.shellcheck ]; };
       };
 
-      # An eval-safe NixOS config for CI. Uses tmpfs root to satisfy the assertion.
-      flake.nixosConfigurations = {
-        blazar = let
+      flake = {
+        nixosConfigurations.blazar = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          pkgs = import nixpkgs { inherit system; };
-        in nixpkgs.lib.nixosSystem {
-          inherit system;
-          modules = [
-            ({ lib, ... }: {
-              nixpkgs.hostPlatform = system;
-              system.stateVersion = "24.05";
-
-              # Eval-only root fs for CI checks; adjust to your real disks for deployment.
-              fileSystems."/" = {
-                device = "nodev";
-                fsType = "tmpfs";
-                options = [ "mode=0755" ];
-              };
-
-              # Home Manager
-              imports = [ home-manager.nixosModules.home-manager ];
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.dscv = import ./home/dscv/default.nix;
-
-              # Removed deprecated sound.enable. If you need ALSA, use hardware.alsa.* options.
-            })
-          ];
+          modules = [ ./nixos/hosts/blazar.nix ];
         };
       };
     };
