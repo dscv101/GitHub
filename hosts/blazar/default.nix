@@ -46,7 +46,6 @@
   services.tlp.enable = false;
 
   # Audio: PipeWire
-  sound.enable = false;
   security.rtkit.enable = true;
   services.pipewire = { enable = true; alsa.enable = true; alsa.support32Bit = false; pulse.enable = true; wireplumber.enable = true; };
 
@@ -151,6 +150,43 @@
     unitConfig.Description = "Daily Restic backup";
   };
   environment.etc."restic/excludes.txt".text = "/home/dscv/.cache\n";
+
+  fileSystems."/" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
+  };
+  fileSystems."/home" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@home" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
+  };
+  fileSystems."/nix" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@nix" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
+  };
+  fileSystems."/var/log" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@log" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
+  };
+  fileSystems."/.snapshots" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@snapshots" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
+  };
+  fileSystems."/persist" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@persist" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
+    neededForBoot = true;
+  };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-partlabel/ESP";
+    fsType = "vfat";
+    options = [ "umask=0077" ];
+  };
 
   # Housekeeping
   system.autoUpgrade.enable = false;
