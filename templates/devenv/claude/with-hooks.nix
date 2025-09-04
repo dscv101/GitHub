@@ -48,10 +48,10 @@
     CLAUDE_CODE_HOOKS_ENABLED = "true";
     
     # Set the project root for Claude context
-    CLAUDE_PROJECT_ROOT = config.env.DEVENV_ROOT or (builtins.toString ./.);
+    CLAUDE_PROJECT_ROOT = builtins.toString ./.;
     
     # Hook configuration
-    CLAUDE_HOOKS_DIR = "${config.env.DEVENV_ROOT or (builtins.toString ./.)}/hooks";
+    CLAUDE_HOOKS_DIR = "${builtins.toString ./.}/hooks";
   };
 
   # Pre-commit hooks are configured via external .pre-commit-config.yaml

@@ -35,7 +35,7 @@
     CLAUDE_CODE_ENABLED = "true";
     
     # Set the project root for Claude context
-    CLAUDE_PROJECT_ROOT = config.env.DEVENV_ROOT or (builtins.toString ./.);
+    CLAUDE_PROJECT_ROOT = builtins.toString ./.;
   };
 
   # Welcome message that indicates Claude Code is available

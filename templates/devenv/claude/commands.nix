@@ -259,7 +259,7 @@
   env = {
     CLAUDE_CODE_ENABLED = "true";
     CLAUDE_CODE_COMMANDS_ENABLED = "true";
-    CLAUDE_PROJECT_ROOT = config.env.DEVENV_ROOT or (builtins.toString ./.);
+    CLAUDE_PROJECT_ROOT = builtins.toString ./.;
   };
 
   # Enhanced welcome message showing available commands

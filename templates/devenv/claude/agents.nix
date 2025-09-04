@@ -27,7 +27,7 @@
     CLAUDE_AGENT_SECURITY_AUDITOR = "Security analysis expert for vulnerability detection and mitigation";
     
     # Project root for agent context
-    CLAUDE_PROJECT_ROOT = config.env.DEVENV_ROOT or (builtins.toString ./.);
+    CLAUDE_PROJECT_ROOT = builtins.toString ./.;
   };
 
   # Include packages needed for agent operations
