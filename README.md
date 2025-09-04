@@ -1,8 +1,9 @@
-# nix-blazar (fixed)
+# nix-blazar (fixed2)
 
-This fixes the CI error (`loginctl` option) and avoids building Marketplace-only VS Code extensions during `flake check`.
-
-**Highlights:** Wayland/Niri, NVIDIA (GBM), HM user `dscv`, sops-nix, Disko, Impermanence, DuckDB + Postgres/SQLite clients, Podman, JJ.
+This version fixes:
+- `programs.fzf` defined at system level (moved to Home Manager)
+- Removed redundant manual `/persist` mount (Disko mounts it)
+- Prior `loginctl.linger` option issue already resolved
 
 ## Install (ISO + Disko)
 ```bash
@@ -11,8 +12,7 @@ sudo nix run github:nix-community/disko -- --mode disko ./hosts/blazar/disko.nix
 sudo nixos-install --flake .#blazar
 reboot
 ```
-
-## After boot
+After boot:
 ```bash
 ./scripts/init-secrets.sh
 sops -e -i secrets/sops/secrets.sops.yaml

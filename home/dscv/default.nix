@@ -42,6 +42,7 @@ in
   programs.atuin = { enable = true; enableZshIntegration = true; settings.auto_sync = false; };
 
   programs.direnv = { enable = true; nix-direnv.enable = true; };
+  programs.fzf.enable = true;
 
   programs.git = {
     enable = true;
@@ -102,7 +103,6 @@ in
     ];
   };
 
-  # Waybar, mako, fuzzel are installed/configured below
   home.packages = with pkgs; [
     ghostty
     waybar swaylock-effects swww swappy grim slurp wl-clipboard cliphist fuzzel
@@ -110,7 +110,6 @@ in
     duckdb sqlite postgresql pgcli
   ];
 
-  # Waybar config
   xdg.configFile."waybar/config.jsonc".text = ''
   {
     "position": "top",
@@ -137,6 +136,7 @@ in
     "tray": { "spacing": 6 }
   }
   '';
+
   xdg.configFile."waybar/style.css".text = ''
   * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
   window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
@@ -144,7 +144,6 @@ in
   #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
   '';
 
-  # Niri KDL config
   xdg.configFile."niri/config.kdl".text = ''
     layout { gaps 8; border 2 }
     input { focus-follows-mouse false }
@@ -173,7 +172,6 @@ in
     }
   '';
 
-  # Fuzzel + Mako
   xdg.configFile."mako/config".text = "default-timeout=5000\n";
   programs.swaylock.enable = true;
   services.swayidle = {
@@ -185,7 +183,6 @@ in
     ];
   };
 
-  # Theming
   gtk = {
     enable = true;
     theme = { name = "Catppuccin-Mocha-Standard-Blue-Dark"; package = catppuccin; };
@@ -193,7 +190,6 @@ in
     font = { name = "Inter"; size = 11; };
   };
 
-  # Ghostty config
   xdg.configFile."ghostty/config".text = ''
     font = JetBrainsMono Nerd Font
     font-size = 11

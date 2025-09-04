@@ -24,7 +24,7 @@
     description = "Derek Vitrano";
     extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
     shell = pkgs.zsh;
-    linger = true; # proper way to keep user units alive
+    linger = true;
   };
 
   # Boot & kernel
@@ -87,7 +87,6 @@
   programs.zsh.enable = true;
   programs.git.enable = true;
   programs.gh.enable = true;
-  programs.fzf.enable = true;
 
   # Containers
   virtualisation = {
@@ -112,13 +111,7 @@
   # XDG portals
   xdg.portal = { enable = true; wlr.enable = true; extraPortals = [ pkgs.xdg-desktop-portal-gtk ]; };
 
-  # Impermanence: bind from /persist
-  fileSystems."/persist" = {
-    device = "/dev/disk/by-partlabel/luks";
-    neededForBoot = true;
-    fsType = "btrfs";
-    options = [ "subvol=@persist" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
-  };
+  # Impermanence persistence (mount for /persist provided by Disko)
   environment.persistence."/persist" = {
     directories = [
       "/var/lib/systemd/coredump"

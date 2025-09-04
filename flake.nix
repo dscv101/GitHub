@@ -1,5 +1,5 @@
 {
-  description = "nix-blazar (fixed): NixOS flake for blazar with Niri, HM, NVIDIA Wayland, sops-nix, disko, impermanence";
+  description = "nix-blazar (fixed2): NixOS flake for blazar with Niri, HM, NVIDIA Wayland, sops-nix, disko, impermanence";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
