@@ -1,8 +1,6 @@
-{ pkgs, ... }:
-let
+{pkgs, ...}: let
   catppuccin = pkgs.catppuccin-gtk;
-in
-{
+in {
   gtk = {
     enable = true;
     theme = {

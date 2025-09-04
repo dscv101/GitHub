@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   imports = [
     ./niri.nix
     ./fonts.nix
@@ -14,7 +13,7 @@
     zathura
     imv
     mpv
-    
+
     # Screenshots / wayland tools
     grim
     slurp
@@ -22,7 +21,7 @@
     swww
     wl-clipboard
     cliphist
-    
+
     # Theming
     papirus-icon-theme
   ];
@@ -31,7 +30,7 @@
   xdg.portal = {
     enable = true;
     wlr.enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    extraPortals = [pkgs.xdg-desktop-portal-gtk];
   };
 
   # Wayland session variables

@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   # Development tools and databases
   environment.systemPackages = with pkgs; [
     duckdb

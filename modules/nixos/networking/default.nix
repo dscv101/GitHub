@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   imports = [
     ./firewall.nix
     ./tailscale.nix

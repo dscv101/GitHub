@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # SSH
   services.openssh = {
     enable = true;

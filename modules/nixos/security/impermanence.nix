@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # Impermanence: persist selected paths via /persist subvolume
   # Note: /persist filesystem is defined in disko.nix
   environment.persistence."/persist" = {

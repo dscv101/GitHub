@@ -1,5 +1,8 @@
-{ self, inputs, ... }:
 {
+  self,
+  inputs,
+  ...
+}: {
   flake.nixosConfigurations = {
     blazar = inputs.nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
@@ -8,13 +11,13 @@
         inputs.disko.nixosModules.disko
         inputs.sops-nix.nixosModules.sops
         inputs.impermanence.nixosModules.impermanence
-        
+
         # System class module
         "${self}/modules/nixos"
-        
+
         # Host-specific configuration
         ./blazar
-        
+
         # Home Manager integration
         inputs.home-manager.nixosModules.home-manager
         {
@@ -25,7 +28,7 @@
           };
         }
       ];
-      
+
       specialArgs = {
         inherit inputs;
       };

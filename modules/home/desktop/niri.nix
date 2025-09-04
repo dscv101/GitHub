@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   xdg.configFile."niri/config.kdl".text = ''
     layout {
       gaps 8

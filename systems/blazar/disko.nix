@@ -41,7 +41,10 @@ _: {
                   "@home".mountpoint = "/home";
                   "@nix".mountpoint = "/nix";
                   "@log".mountpoint = "/var/log";
-                  "@persist".mountpoint = "/persist";
+                  "@persist" = {
+                    mountpoint = "/persist";
+                    mountOptions = ["neededForBoot"];
+                  };
                   "@snapshots".mountpoint = "/.snapshots";
                 };
               };

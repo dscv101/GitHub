@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   environment = {
     systemPackages = with pkgs; [
       # CLI utilities
@@ -14,12 +13,12 @@
       wget
       curl
       fzf
-      
+
       # File/archive tools
       p7zip
       unzip
       unrar
-      
+
       # Development helpers
       jujutsu
       git

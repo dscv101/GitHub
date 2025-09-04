@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # Power management (desktop)
   services.power-profiles-daemon.enable = true;
   services.tlp.enable = false;

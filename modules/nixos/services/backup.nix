@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   # Backups: restic + rclone (unit + timer)
   # Env/secrets supplied by sops-nix at runtime
   systemd.services."restic-backup" = {
@@ -15,7 +14,7 @@
     wants = ["network-online.target"];
     after = ["network-online.target"];
   };
-  
+
   systemd.timers."restic-backup" = {
     wantedBy = ["timers.target"];
     timerConfig.OnCalendar = "daily 03:30";

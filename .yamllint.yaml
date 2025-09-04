@@ -1,0 +1,28 @@
+# yamllint configuration
+# See: https://yamllint.readthedocs.io/en/stable/configuration.html
+
+extends: default
+
+rules:
+  # Allow longer lines for readability
+  line-length:
+    max: 120
+    level: warning
+
+  # Allow truthy values (useful for GitHub Actions)
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off', 'yes', 'no']
+    check-keys: false
+
+  # Be more flexible with comments
+  comments:
+    min-spaces-from-content: 1
+
+  # Allow empty values
+  empty-values:
+    forbid-in-block-mappings: false
+    forbid-in-flow-mappings: false
+
+ignore: |
+  secrets/sops/secrets.sops.yaml
+  flake.lock

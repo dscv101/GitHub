@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # Virtualization / containers
   virtualisation = {
     podman = {

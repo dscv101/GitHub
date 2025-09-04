@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   imports = [
     ./disko.nix
   ];
@@ -60,6 +56,14 @@
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
     options = ["subvol=@" "compress=zstd:3" "noatime" "ssd" "discard=async"];
+  };
+
+  # Persist filesystem for impermanence
+  fileSystems."/persist" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = ["subvol=@persist" "compress=zstd:3" "noatime" "ssd" "discard=async"];
+    neededForBoot = true;
   };
 
   # System maintenance

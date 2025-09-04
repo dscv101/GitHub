@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # Audio: PipeWire
   services.pipewire = {
     enable = true;

@@ -10,7 +10,7 @@ set -euo pipefail
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
 # Partition & format via disko
-sudo nix run github:nix-community/disko -- --mode disko ./hosts/blazar/disko.nix
+sudo nix run github:nix-community/disko -- --mode disko ./systems/blazar/disko.nix
 
 # Mount is handled by disko; verify mounts:
 mount | grep -E '/boot| / ' || true

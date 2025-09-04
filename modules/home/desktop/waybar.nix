@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   xdg.configFile = {
     "waybar/config.jsonc".text = ''
       {

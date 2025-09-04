@@ -1,0 +1,17 @@
+# Markdownlint configuration
+# See: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Disable specific rules
+MD013: false  # Line length (we'll be flexible with this)
+MD033: false  # Allow inline HTML (useful for GitHub-specific features)
+MD041: false  # First line in file should be a top level header (not always needed)
+
+# Configure specific rules
+MD007:
+  indent: 2  # Unordered list indentation
+
+MD024:
+  allow_different_nesting: true  # Allow duplicate headers in different sections
+
+MD029:
+  style: "ordered"  # Ordered list item prefix style

@@ -49,7 +49,10 @@ jobs:
             substituters = https://cache.nixos.org/ https://nix-community.cachix.org
             trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
 
-      - name: Check code formatting
+      - name: Check code formatting (treefmt)
+        run: nix develop --command treefmt --check
+
+      - name: Check code formatting (alejandra fallback)
         run: nix develop --command alejandra --check .
 
       - name: Check for dead code
@@ -57,3 +60,18 @@ jobs:
 
       - name: Run static analysis
         run: nix develop --command statix check .
+
+      - name: Check shell scripts
+        run: nix develop --command shellcheck scripts/*.sh
+
+      - name: Check shell script formatting
+        run: nix develop --command shfmt -d scripts/*.sh
+
+      - name: Lint Markdown files
+        run: nix develop --command markdownlint *.md
+
+      - name: Lint YAML files
+        run: nix develop --command yamllint .
+
+      - name: Lint GitHub Actions
+        run: nix develop --command actionlint

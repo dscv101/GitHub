@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # Tailscale (+ SSH)
   services.tailscale = {
     enable = true;

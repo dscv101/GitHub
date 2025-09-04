@@ -1,5 +1,4 @@
-{ config, ... }:
-{
+{config, ...}: {
   # Graphics support
   hardware.graphics = {
     enable = true;
