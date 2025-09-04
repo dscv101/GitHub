@@ -56,9 +56,11 @@
 
             home-manager.nixosModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.dscv = import ./home/dscv;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                users.dscv = import ./home/dscv;
+              };
             }
           ];
         };

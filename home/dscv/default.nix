@@ -8,6 +8,7 @@ in {
   home = {
     username = "dscv";
     homeDirectory = "/home/dscv";
+    stateVersion = "24.11";
     packages = with pkgs; [
       # Dev CLIs (global)
       uv
@@ -30,7 +31,6 @@ in {
       wl-clipboard
       cliphist
     ];
-    stateVersion = "24.11";
   };
 
   programs = {
@@ -166,9 +166,10 @@ in {
     fuzzel.enable = true;
   };
 
-  # Waybar config
+  # Waybar config and other XDG settings
   xdg = {
-    configFile."waybar/config.jsonc".text = ''
+    configFile = {
+      "waybar/config.jsonc".text = ''
     {
       "position": "top",
       "height": 28,
@@ -193,17 +194,18 @@ in {
       "power-profiles-daemon": { "profiles": ["power-saver","balanced","performance"] },
       "tray": { "spacing": 6 }
     }
-  '';
-    configFile."waybar/style.css".text = ''
+    '';
+
+      "waybar/style.css".text = ''
     /* Minimal Catppuccin-ish styling */
     * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
     window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
     #workspaces button.focused { background: #89b4fa; color: #1e1e2e; }
     #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
-  '';
+    '';
 
-    # Niri configuration (KDL)
-    configFile."niri/config.kdl".text = ''
+      # Niri configuration (KDL)
+      "niri/config.kdl".text = ''
     layout {
       gaps 8
       border 2
@@ -278,39 +280,47 @@ in {
       "SHIFT+PRINT" => spawn "grimshot save area ~/Pictures/Screenshots"
       "CTRL+PRINT"  => spawn "grimshot copy area"
     }
-  '';
+    '';
+    };
 
-  # Fuzzel launcher
-  programs.fuzzel.enable = true;
-
-  # Mako notifications
-  services.mako = {
-    enable = true;
-    settings = {
-      default-timeout = 5000;
+    # XDG portals (user side)
+    portal = {
+      enable = true;
+      extraPortals = [pkgs.xdg-desktop-portal-gtk];
+      config.common.default = "*";
     };
   };
 
-  # Swaylock-effects (lockscreen), swayidle policy
-  # Note: Using swaylock-effects package instead of programs.swaylock to avoid conflicts
-  services.swayidle = {
-    enable = true;
-    events = [
-      {
-        event = "before-sleep";
-        command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5";
-      }
-    ];
-    timeouts = [
-      {
-        timeout = 600;
-        command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5";
-      } # lock after 10m
-      {
-        timeout = 900;
-        command = "${pkgs.coreutils}/bin/true";
-      } # screen off handled by DPMS via compositor
-    ];
+  # Mako notifications
+  services = {
+    mako = {
+      enable = true;
+      settings = {
+        default-timeout = 5000;
+      };
+    };
+
+    # Swaylock-effects (lockscreen), swayidle policy
+    # Note: Using swaylock-effects package instead of programs.swaylock to avoid conflicts
+    swayidle = {
+      enable = true;
+      events = [
+        {
+          event = "before-sleep";
+          command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5";
+        }
+      ];
+      timeouts = [
+        {
+          timeout = 600;
+          command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5";
+        } # lock after 10m
+        {
+          timeout = 900;
+          command = "${pkgs.coreutils}/bin/true";
+        } # screen off handled by DPMS via compositor
+      ];
+    };
   };
 
   # Theming
@@ -330,35 +340,5 @@ in {
     };
   };
 
-  home.packages = with pkgs; [
-    # Dev CLIs (global)
-    uv
-    ruff
-    mypy
-    python3Packages.ipython
-    python3Packages.jupyterlab
-    # SQL tooling
-    duckdb
-    sqlite
-    postgresql
-    pgcli
-    # Wayland desktop helpers
-    waybar
-    swaylock-effects
-    swww
-    swappy
-    grim
-    slurp
-    wl-clipboard
-    cliphist
-  ];
 
-  # XDG portals (user side)
-  xdg.portal = {
-    enable = true;
-    extraPortals = [pkgs.xdg-desktop-portal-gtk];
-    config.common.default = "*";
-  };
-
-  home.stateVersion = "24.11";
 }

@@ -1,4 +1,4 @@
-{...}: let
+_: let
   secretsDir = "/var/lib/sops-nix/secrets";
 in {
   sops = {

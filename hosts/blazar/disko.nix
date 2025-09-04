@@ -2,7 +2,7 @@
 # Layout:
 # - EFI 1.5GiB (vfat)
 # - LUKS2 (rest) -> Btrfs subvols: @, @home, @nix, @log, @persist, @snapshots
-{...}: {
+_: {
   disko.devices = {
     disk.nvme0n1 = {
       type = "disk";
