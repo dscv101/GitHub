@@ -142,10 +142,8 @@ in {
       dosfstools    # For FAT filesystem operations
       efivar        # For EFI variable manipulation
       grub2         # For GRUB utilities
+      bootloaderScripts  # Add the cleanup script
     ];
-    
-    # Add the cleanup script to system packages
-    environment.systemPackages = [ bootloaderScripts ];
     
     # Create systemd service for bootloader cleanup
     systemd.services.bootloader-cleanup = {
