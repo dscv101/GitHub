@@ -1,34 +1,10 @@
-{ config, pkgs, lib, ... }:
-{
-  home.username = "dscv";
-  home.homeDirectory = "/home/dscv";
+{ pkgs, ... }: {
   home.stateVersion = "24.05";
-
   programs.home-manager.enable = true;
 
-  # Valid Home Manager modules
-  programs.fzf.enable = true;
-  programs.gh.enable = true;
+  # Keep VS Code minimal to avoid extension attr mismatches during CI.
+  programs.vscode.enable = true;
 
-  programs.zsh = {
-    enable = true;
-    enableCompletion = true;
-    enableAutosuggestions = true; # correct option name (vs nonexistent programs.zsh.autosuggestions.enable)
-  };
-
-  # Per-user packages
-  home.packages = with pkgs; [
-    rclone
-  ];
-
-  # VS Code with extensions (correct attr path)
-  programs.vscode = {
-    enable = true;
-    extensions = with pkgs.vscode-extensions; [
-      rust-lang.rust-analyzer
-      ms-ossdata.vscode-postgresql
-      ms-mssql.mssql
-      ziglang.vscode-zig
-    ];
-  };
+  # If you need rclone, prefer adding the package to avoid unknown NixOS option errors.
+  home.packages = [ pkgs.rclone ];
 }
