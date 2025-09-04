@@ -1,0 +1,7 @@
+[project]
+name = "python_dsml"
+version = "0.1.0"
+dependencies = ["polars", "duckdb", "jupyterlab", "numpy", "pandas"]
+
+[tool.ruff]
+line-length = 100
