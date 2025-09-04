@@ -1,5 +1,5 @@
 {
-  description = "nix-blazar: NixOS flake (flake-parts) for host blazar with Niri, Home Manager, NVIDIA (Wayland/GBM), sops-nix, disko, impermanence";
+  description = "nix-blazar (fixed): NixOS flake for blazar with Niri, HM, NVIDIA Wayland, sops-nix, disko, impermanence";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -57,13 +57,8 @@
 
       perSystem = { pkgs, ... }: {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            git jujutsu direnv devenv
-            alejandra statix deadnix
-          ];
-          shellHook = ''
-            echo "Dev shell ready. Try: nix fmt (alejandra), statix check, deadnix, nix flake check"
-          '';
+          buildInputs = with pkgs; [ git jujutsu direnv devenv alejandra statix deadnix ];
+          shellHook = "echo Dev shell: nix fmt / statix check / deadnix / nix flake check";
         };
         formatter = pkgs.alejandra;
       };

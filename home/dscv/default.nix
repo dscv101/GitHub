@@ -7,16 +7,13 @@ in
   home.homeDirectory = "/home/dscv";
   programs.home-manager.enable = true;
 
-  # Shell & Starship
+  # Zsh
   programs.zsh = {
     enable = true;
     enableCompletion = true;
     autosuggestions.enable = true;
     syntaxHighlighting.enable = true;
-    oh-my-zsh.enable = false;
-    initExtra = ''
-      bindkey -v  # vi-mode
-    '';
+    initExtra = '' bindkey -v '';
     shellAliases = {
       ll = "eza -l --git";
       la = "eza -la --git";
@@ -42,28 +39,17 @@ in
     };
   };
 
-  programs.atuin = {
-    enable = true;
-    enableZshIntegration = true;
-    settings = { auto_sync = false; };
-  };
+  programs.atuin = { enable = true; enableZshIntegration = true; settings.auto_sync = false; };
 
-  # Direnv + devenv
-  programs.direnv = {
-    enable = true;
-    nix-direnv.enable = true;
-  };
+  programs.direnv = { enable = true; nix-direnv.enable = true; };
 
-  # Git & JJ
   programs.git = {
     enable = true;
     userName = "dscv101";
     userEmail = "derek.vitrano@gmail.com";
-    signing = {
-      signByDefault = false;
-      key = "";
-    };
+    signing = { signByDefault = false; key = ""; };
   };
+
   programs.jujutsu = {
     enable = true;
     settings = {
@@ -71,7 +57,6 @@ in
       ui.default-command = "status";
       git.auto-local-bookmark = true;
       git.push-bookmark-prefix = "trunk";
-      templates = {};
       aliases = {
         st = "status -s";
         ls = ''log -r ::@ --limit 20 --template "commit_id.short() ++ \"  \" ++ description.first_line()"'';
@@ -82,14 +67,11 @@ in
         sync = "!jj git fetch && jj rebase -r @ -d trunk()";
         land = "!jj git push && gh pr create --fill --draft --web";
       };
-      git = {
-        auto = true;
-        push-branches = true;
-      };
+      git = { auto = true; push-branches = true; };
     };
   };
 
-  # VS Code (official) with extensions & Wayland flags
+  # VS Code (official) + settings
   programs.vscode = {
     enable = true;
     package = pkgs.vscode;
@@ -98,17 +80,14 @@ in
       "window.titleBarStyle" = "custom";
       "window.autoDetectColorScheme" = true;
       "editor.formatOnSave" = true;
-      "editor.codeActionsOnSave" = {
-        "source.fixAll" = true;
-        "source.organizeImports" = true;
-      };
+      "editor.codeActionsOnSave" = { "source.fixAll" = true; "source.organizeImports" = true; };
       "terminal.integrated.defaultProfile.linux" = "zsh";
       "workbench.colorTheme" = "Catppuccin Mocha";
       "security.workspace.trust.untrustedFiles" = "open";
       "telemetry.telemetryLevel" = "off";
       "claudeCode.defaultModel" = "sonnet";
-      "claudeCode.inlineCompletions.enabled" = True;
-      "claudeCode.telemetryEnabled" = False;
+      "claudeCode.inlineCompletions.enabled" = true;
+      "claudeCode.telemetryEnabled" = false;
     };
     extensions = with pkgs.vscode-extensions; [
       ms-python.python
@@ -120,21 +99,16 @@ in
       ms-ossdata.vscode-postgresql
       ms-mssql.mssql
       github.vscode-pull-request-github
-    ] ++ [
-      # Marketplace (requires vscode, not codium)
-      (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
-        { name = "claude-code"; publisher = "anthropic"; version = "0.0.0"; sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; }
-      ])
     ];
   };
 
-  # Ghostty terminal
-  programs.ghostty.enable = true;
-  programs.ghostty.settings = {
-    font = "JetBrainsMono Nerd Font";
-    font-size = 11;
-    theme = "Catppuccin-Mocha";
-  };
+  # Waybar, mako, fuzzel are installed/configured below
+  home.packages = with pkgs; [
+    ghostty
+    waybar swaylock-effects swww swappy grim slurp wl-clipboard cliphist fuzzel
+    uv ruff mypy ipython jupyterlab
+    duckdb sqlite postgresql pgcli
+  ];
 
   # Waybar config
   xdg.configFile."waybar/config.jsonc".text = ''
@@ -164,144 +138,67 @@ in
   }
   '';
   xdg.configFile."waybar/style.css".text = ''
-  /* Minimal Catppuccin-ish styling */
   * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
   window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
   #workspaces button.focused { background: #89b4fa; color: #1e1e2e; }
   #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
   '';
 
-  # Niri configuration (KDL)
+  # Niri KDL config
   xdg.configFile."niri/config.kdl".text = ''
-    layout {
-      gaps 8
-      border 2
-    }
-
+    layout { gaps 8; border 2 }
     input { focus-follows-mouse false }
-
-    monitor "DP-1" {
-      scale 1.0
-      mode 1920x1080@60.00Hz
-      transform normal
-      vrr off
-      primary true
-    }
-
-    # Startup apps
+    monitor "DP-1" { scale 1.0; mode 1920x1080@60.00Hz; transform normal; vrr off; primary true }
     spawn "ghostty"
     spawn "code"
-
     binds {
-      # launchers
       "SUPER+ENTER" => spawn "ghostty"
       "SUPER+Space" => spawn "fuzzel"
       "SUPER+E"     => spawn "code"
-
-      # focus
-      "SUPER+H"     => focus left
-      "SUPER+J"     => focus down
-      "SUPER+K"     => focus up
-      "SUPER+L"     => focus right
-      "SUPER+TAB"   => focus next
-      "SUPER+SHIFT+TAB" => focus previous
-
-      # move/resize
-      "SUPER+SHIFT+H" => move left
-      "SUPER+SHIFT+J" => move down
-      "SUPER+SHIFT+K" => move up
-      "SUPER+SHIFT+L" => move right
-      "SUPER+CTRL+H"  => resize decrease-width
-      "SUPER+CTRL+L"  => resize increase-width
-      "SUPER+CTRL+J"  => resize increase-height
-      "SUPER+CTRL+K"  => resize decrease-height
-
-      # layout
-      "SUPER+F"     => fullscreen
-      "SUPER+SHIFT+Space" => toggle-floating
-      "SUPER+Q"     => close-window
-
-      # workspaces 1..9
-      "SUPER+1" => switch-workspace 1
-      "SUPER+2" => switch-workspace 2
-      "SUPER+3" => switch-workspace 3
-      "SUPER+4" => switch-workspace 4
-      "SUPER+5" => switch-workspace 5
-      "SUPER+6" => switch-workspace 6
-      "SUPER+7" => switch-workspace 7
-      "SUPER+8" => switch-workspace 8
-      "SUPER+9" => switch-workspace 9
-
-      "SUPER+SHIFT+1" => move-to-workspace 1
-      "SUPER+SHIFT+2" => move-to-workspace 2
-      "SUPER+SHIFT+3" => move-to-workspace 3
-      "SUPER+SHIFT+4" => move-to-workspace 4
-      "SUPER+SHIFT+5" => move-to-workspace 5
-      "SUPER+SHIFT+6" => move-to-workspace 6
-      "SUPER+SHIFT+7" => move-to-workspace 7
-      "SUPER+SHIFT+8" => move-to-workspace 8
-      "SUPER+SHIFT+9" => move-to-workspace 9
-
-      # screenshots / clipboard
-      "PRINT"       => spawn "grimshot save active ~/Pictures/Screenshots"
+      "SUPER+H" => focus left; "SUPER+J" => focus down; "SUPER+K" => focus up; "SUPER+L" => focus right
+      "SUPER+TAB" => focus next; "SUPER+SHIFT+TAB" => focus previous
+      "SUPER+SHIFT+H" => move left; "SUPER+SHIFT+J" => move down; "SUPER+SHIFT+K" => move up; "SUPER+SHIFT+L" => move right
+      "SUPER+CTRL+H" => resize decrease-width; "SUPER+CTRL+L" => resize increase-width
+      "SUPER+CTRL+J" => resize increase-height; "SUPER+CTRL+K" => resize decrease-height
+      "SUPER+F" => fullscreen; "SUPER+SHIFT+Space" => toggle-floating; "SUPER+Q" => close-window
+      "SUPER+1" => switch-workspace 1; "SUPER+2" => switch-workspace 2; "SUPER+3" => switch-workspace 3
+      "SUPER+4" => switch-workspace 4; "SUPER+5" => switch-workspace 5; "SUPER+6" => switch-workspace 6
+      "SUPER+7" => switch-workspace 7; "SUPER+8" => switch-workspace 8; "SUPER+9" => switch-workspace 9
+      "SUPER+SHIFT+1" => move-to-workspace 1; "SUPER+SHIFT+2" => move-to-workspace 2; "SUPER+SHIFT+3" => move-to-workspace 3
+      "SUPER+SHIFT+4" => move-to-workspace 4; "SUPER+SHIFT+5" => move-to-workspace 5; "SUPER+SHIFT+6" => move-to-workspace 6
+      "SUPER+SHIFT+7" => move-to-workspace 7; "SUPER+SHIFT+8" => move-to-workspace 8; "SUPER+SHIFT+9" => move-to-workspace 9
+      "PRINT" => spawn "grimshot save active ~/Pictures/Screenshots"
       "SHIFT+PRINT" => spawn "grimshot save area ~/Pictures/Screenshots"
-      "CTRL+PRINT"  => spawn "grimshot copy area"
+      "CTRL+PRINT" => spawn "grimshot copy area"
     }
   '';
 
-  # Fuzzel launcher
-  programs.fuzzel.enable = true;
-
-  # Mako notifications
-  services.mako = {
-    enable = true;
-    defaultTimeout = 5000;
-  };
-
-  # Swaylock-effects (lockscreen), swayidle policy
+  # Fuzzel + Mako
+  xdg.configFile."mako/config".text = "default-timeout=5000\n";
   programs.swaylock.enable = true;
   services.swayidle = {
     enable = true;
-    events = [
-      { event = "before-sleep"; command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5"; }
-    ];
+    events = [{ event = "before-sleep"; command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5"; }];
     timeouts = [
-      { timeout = 600; command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5"; } # lock after 10m
-      { timeout = 900; command = "${pkgs.coreutils}/bin/true"; } # screen off handled by DPMS via compositor
+      { timeout = 600; command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5"; }
+      { timeout = 900; command = "${pkgs.coreutils}/bin/true"; }
     ];
   };
 
   # Theming
   gtk = {
     enable = true;
-    theme = {
-      name = "Catppuccin-Mocha-Standard-Blue-Dark";
-      package = catppuccin;
-    };
-    iconTheme = {
-      name = "Papirus-Dark";
-      package = pkgs.papirus-icon-theme;
-    };
-    font = {
-      name = "Inter";
-      size = 11;
-    };
+    theme = { name = "Catppuccin-Mocha-Standard-Blue-Dark"; package = catppuccin; };
+    iconTheme = { name = "Papirus-Dark"; package = pkgs.papirus-icon-theme; };
+    font = { name = "Inter"; size = 11; };
   };
 
-  home.packages = with pkgs; [
-    # Dev CLIs (global)
-    uv ruff mypy ipython jupyterlab
-    # SQL tooling
-    duckdb sqlite postgresql pgcli
-    # Wayland desktop helpers
-    waybar swaylock-effects swww swappy grim slurp wl-clipboard cliphist
-  ];
-
-  # XDG portals (user side)
-  xdg.portal = {
-    enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-  };
+  # Ghostty config
+  xdg.configFile."ghostty/config".text = ''
+    font = JetBrainsMono Nerd Font
+    font-size = 11
+    theme = Catppuccin-Mocha
+  '';
 
   home.stateVersion = "24.11";
 }
