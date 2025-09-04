@@ -1,19 +1,28 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   # Common base apps
   environment.systemPackages = with pkgs; [
     # GUI
-    firefox thunar zathura imv mpv
+    firefox
+    xfce.thunar
+    zathura
+    imv
+    mpv
     # Screenshots / wayland tools
-    grim slurp grimshot swappy swww
-    wl-clipboard cliphist
+    grim
+    slurp
+    swappy
+    swww
+    wl-clipboard
+    cliphist
     # Theming
     papirus-icon-theme
   ];
 
   fonts.packages = with pkgs; [
-    (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
-    inter noto-fonts noto-fonts-emoji
+    nerd-fonts.jetbrains-mono
+    inter
+    noto-fonts
+    noto-fonts-emoji
     jetbrains-mono
   ];
 }

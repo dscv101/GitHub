@@ -1,8 +1,10 @@
-{ config, pkgs, lib, ... }:
-let
-  catppuccin = pkgs.catppuccin-gtk;
-in
 {
+  config,
+  pkgs,
+  ...
+}: let
+  catppuccin = pkgs.catppuccin-gtk;
+in {
   home.username = "dscv";
   home.homeDirectory = "/home/dscv";
   programs.home-manager.enable = true;
@@ -11,10 +13,10 @@ in
   programs.zsh = {
     enable = true;
     enableCompletion = true;
-    autosuggestions.enable = true;
+    autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     oh-my-zsh.enable = false;
-    initExtra = ''
+    initContent = ''
       bindkey -v  # vi-mode
     '';
     shellAliases = {
@@ -45,7 +47,7 @@ in
   programs.atuin = {
     enable = true;
     enableZshIntegration = true;
-    settings = { auto_sync = false; };
+    settings = {auto_sync = false;};
   };
 
   # Direnv + devenv
@@ -67,7 +69,10 @@ in
   programs.jujutsu = {
     enable = true;
     settings = {
-      user = { name = "dscv101"; email = "derek.vitrano@gmail.com"; };
+      user = {
+        name = "dscv101";
+        email = "derek.vitrano@gmail.com";
+      };
       ui.default-command = "status";
       git.auto-local-bookmark = true;
       git.push-bookmark-prefix = "trunk";
@@ -75,7 +80,7 @@ in
       aliases = {
         st = "status -s";
         ls = ''log -r ::@ --limit 20 --template "commit_id.short() ++ \"  \" ++ description.first_line()"'';
-        d  = "diff -r @-";
+        d = "diff -r @-";
         amend = "amend -i";
         new = "new -m \"\"";
         mvup = "rebase -r @ -d @-";
@@ -93,39 +98,43 @@ in
   programs.vscode = {
     enable = true;
     package = pkgs.vscode;
-    enableUpdateCheck = false;
-    userSettings = {
-      "window.titleBarStyle" = "custom";
-      "window.autoDetectColorScheme" = true;
-      "editor.formatOnSave" = true;
-      "editor.codeActionsOnSave" = {
-        "source.fixAll" = true;
-        "source.organizeImports" = true;
+    profiles.default = {
+      enableUpdateCheck = false;
+      userSettings = {
+        "window.titleBarStyle" = "custom";
+        "window.autoDetectColorScheme" = true;
+        "editor.formatOnSave" = true;
+        "editor.codeActionsOnSave" = {
+          "source.fixAll" = true;
+          "source.organizeImports" = true;
+        };
+        "terminal.integrated.defaultProfile.linux" = "zsh";
+        "workbench.colorTheme" = "Catppuccin Mocha";
+        "security.workspace.trust.untrustedFiles" = "open";
+        "telemetry.telemetryLevel" = "off";
+        "claudeCode.defaultModel" = "sonnet";
+        "claudeCode.inlineCompletions.enabled" = true;
+        "claudeCode.telemetryEnabled" = false;
       };
-      "terminal.integrated.defaultProfile.linux" = "zsh";
-      "workbench.colorTheme" = "Catppuccin Mocha";
-      "security.workspace.trust.untrustedFiles" = "open";
-      "telemetry.telemetryLevel" = "off";
-      "claudeCode.defaultModel" = "sonnet";
-      "claudeCode.inlineCompletions.enabled" = True;
-      "claudeCode.telemetryEnabled" = False;
+      extensions = with pkgs.vscode-extensions;
+        [
+          ms-python.python
+          ms-toolsai.jupyter
+          charliermarsh.ruff
+          ms-vscode.cpptools
+          rust-lang.rust-analyzer
+          ziglang.vscode-zig
+          github.vscode-pull-request-github
+        ]
+        ++ (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
+          {
+            name = "claude-code";
+            publisher = "anthropic";
+            version = "0.0.0";
+            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          }
+        ]);
     };
-    extensions = with pkgs.vscode-extensions; [
-      ms-python.python
-      ms-toolsai.jupyter
-      charliermarsh.ruff
-      ms-vscode.cpptools
-      rust-lang.rust-analyzer
-      ziglang.vscode-zig
-      ms-ossdata.vscode-postgresql
-      ms-mssql.mssql
-      github.vscode-pull-request-github
-    ] ++ [
-      # Marketplace (requires vscode, not codium)
-      (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
-        { name = "claude-code"; publisher = "anthropic"; version = "0.0.0"; sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; }
-      ])
-    ];
   };
 
   # Ghostty terminal
@@ -138,37 +147,37 @@ in
 
   # Waybar config
   xdg.configFile."waybar/config.jsonc".text = ''
-  {
-    "position": "top",
-    "height": 28,
-    "modules-left": ["niri/workspaces", "niri/mode", "window"],
-    "modules-center": ["clock"],
-    "modules-right": ["cpu", "memory", "disk", "network", "pulseaudio", "power-profiles-daemon", "tray"],
-    "clock": { "format": "{:%a %b %d  %H:%M}" },
-    "window": { "max-length": 60 },
-    "cpu": { "interval": 3 },
-    "memory": { "interval": 5 },
-    "disk": { "interval": 30, "path": "/" },
-    "network": {
-      "format-wired": "{ifname}  {ipaddr}",
-      "format-disconnected": "disconnected",
-      "family": "ipv4"
-    },
-    "pulseaudio": {
-      "scroll-step": 2,
-      "format": "{volume}% {icon}",
-      "format-muted": "muted "
-    },
-    "power-profiles-daemon": { "profiles": ["power-saver","balanced","performance"] },
-    "tray": { "spacing": 6 }
-  }
+    {
+      "position": "top",
+      "height": 28,
+      "modules-left": ["niri/workspaces", "niri/mode", "window"],
+      "modules-center": ["clock"],
+      "modules-right": ["cpu", "memory", "disk", "network", "pulseaudio", "power-profiles-daemon", "tray"],
+      "clock": { "format": "{:%a %b %d  %H:%M}" },
+      "window": { "max-length": 60 },
+      "cpu": { "interval": 3 },
+      "memory": { "interval": 5 },
+      "disk": { "interval": 30, "path": "/" },
+      "network": {
+        "format-wired": "{ifname}  {ipaddr}",
+        "format-disconnected": "disconnected",
+        "family": "ipv4"
+      },
+      "pulseaudio": {
+        "scroll-step": 2,
+        "format": "{volume}% {icon}",
+        "format-muted": "muted "
+      },
+      "power-profiles-daemon": { "profiles": ["power-saver","balanced","performance"] },
+      "tray": { "spacing": 6 }
+    }
   '';
   xdg.configFile."waybar/style.css".text = ''
-  /* Minimal Catppuccin-ish styling */
-  * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
-  window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
-  #workspaces button.focused { background: #89b4fa; color: #1e1e2e; }
-  #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
+    /* Minimal Catppuccin-ish styling */
+    * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
+    window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
+    #workspaces button.focused { background: #89b4fa; color: #1e1e2e; }
+    #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
   '';
 
   # Niri configuration (KDL)
@@ -255,7 +264,9 @@ in
   # Mako notifications
   services.mako = {
     enable = true;
-    defaultTimeout = 5000;
+    settings = {
+      default-timeout = 5000;
+    };
   };
 
   # Swaylock-effects (lockscreen), swayidle policy
@@ -263,11 +274,20 @@ in
   services.swayidle = {
     enable = true;
     events = [
-      { event = "before-sleep"; command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5"; }
+      {
+        event = "before-sleep";
+        command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5";
+      }
     ];
     timeouts = [
-      { timeout = 600; command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5"; } # lock after 10m
-      { timeout = 900; command = "${pkgs.coreutils}/bin/true"; } # screen off handled by DPMS via compositor
+      {
+        timeout = 600;
+        command = "${pkgs.swaylock-effects}/bin/swaylock -f --effect-blur 7x5";
+      } # lock after 10m
+      {
+        timeout = 900;
+        command = "${pkgs.coreutils}/bin/true";
+      } # screen off handled by DPMS via compositor
     ];
   };
 
@@ -290,17 +310,32 @@ in
 
   home.packages = with pkgs; [
     # Dev CLIs (global)
-    uv ruff mypy ipython jupyterlab
+    uv
+    ruff
+    mypy
+    python3Packages.ipython
+    python3Packages.jupyterlab
     # SQL tooling
-    duckdb sqlite postgresql pgcli
+    duckdb
+    sqlite
+    postgresql
+    pgcli
     # Wayland desktop helpers
-    waybar swaylock-effects swww swappy grim slurp wl-clipboard cliphist
+    waybar
+    swaylock-effects
+    swww
+    swappy
+    grim
+    slurp
+    wl-clipboard
+    cliphist
   ];
 
   # XDG portals (user side)
   xdg.portal = {
     enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    extraPortals = [pkgs.xdg-desktop-portal-gtk];
+    config.common.default = "*";
   };
 
   home.stateVersion = "24.11";

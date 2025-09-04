@@ -1,5 +1,8 @@
-{ config, pkgs, lib, ... }:
 {
+  config,
+  pkgs,
+  ...
+}: {
   system.stateVersion = "24.11";
 
   nixpkgs.config = {
@@ -7,7 +10,7 @@
   };
 
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = ["nix-command" "flakes"];
     auto-optimise-store = true;
     substituters = [
       "https://cache.nixos.org"
@@ -32,8 +35,9 @@
   users.users.dscv = {
     isNormalUser = true;
     description = "Derek Vitrano";
-    extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
+    extraGroups = ["wheel" "networkmanager" "audio" "video"];
     shell = pkgs.zsh;
+    linger = true;
   };
 
   # Boot & kernel
@@ -46,7 +50,8 @@
     kernelParams = [
       "nvidia_drm.modeset=1"
       "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
-      "amd_iommu=on" "iommu=pt"
+      "amd_iommu=on"
+      "iommu=pt"
     ];
     plymouth = {
       enable = true;
@@ -63,7 +68,6 @@
   services.tlp.enable = false;
 
   # Audio: PipeWire
-  sound.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
@@ -90,15 +94,15 @@
   services.tailscale = {
     enable = true;
     useRoutingFeatures = "client";
-    extraUpFlags = [ "--ssh" "--accept-routes" "--advertise-tags=tag:nix-dev" ];
+    extraUpFlags = ["--ssh" "--accept-routes" "--advertise-tags=tag:nix-dev"];
   };
 
   # NVIDIA (Wayland/GBM)
-  hardware.opengl = {
+  hardware.graphics = {
     enable = true;
-    driSupport32Bit = false;
+    enable32Bit = false;
   };
-  services.xserver.videoDrivers = [ "nvidia" ];
+  services.xserver.videoDrivers = ["nvidia"];
   hardware.nvidia = {
     open = false;
     modesetting.enable = true;
@@ -109,7 +113,7 @@
 
   # Wayland session vars
   environment.sessionVariables = {
-    NIXOS_OZONE_WL = "1";  # Electron/Chromium on Wayland
+    NIXOS_OZONE_WL = "1"; # Electron/Chromium on Wayland
     MOZ_ENABLE_WAYLAND = "1";
     XDG_SESSION_TYPE = "wayland";
     WLR_NO_HARDWARE_CURSORS = "1";
@@ -117,8 +121,6 @@
 
   programs.zsh.enable = true;
   programs.git.enable = true;
-  programs.gh.enable = true;
-  programs.fzf = { enable = true; };
 
   # Virtualization / containers
   virtualisation = {
@@ -131,12 +133,27 @@
   };
   environment.systemPackages = with pkgs; [
     # CLI utils
-    ripgrep fd eza bat jq sd bottom tree wget curl
-    nvtop
+    ripgrep
+    fd
+    eza
+    bat
+    jq
+    sd
+    bottom
+    tree
+    wget
+    curl
+    fzf
     # file/archive tools
-    p7zip unzip unrar
+    p7zip
+    unzip
+    unrar
     # dev helpers
-    jujutsu git gh direnv devenv
+    jujutsu
+    git
+    gh
+    direnv
+    devenv
   ];
 
   # Greetd + Tuigreet → Niri session
@@ -154,36 +171,95 @@
   xdg.portal = {
     enable = true;
     wlr.enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    extraPortals = [pkgs.xdg-desktop-portal-gtk];
+  };
+
+  # Root filesystem (disko should handle this, but NixOS requires explicit definition)
+  fileSystems."/" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = ["subvol=@" "compress=zstd:3" "noatime" "ssd" "discard=async"];
   };
 
   # Impermanence: persist selected paths via /persist subvolume
-  fileSystems."/persist" = {
-    device = "/dev/disk/by-label/cryptroot"; # mounted via btrfs subvol in disko
-    neededForBoot = true;
-    fsType = "btrfs";
-    options = [ "subvol=@persist" "compress=zstd:3" "noatime" "ssd" "discard=async" ];
-  };
+  # Note: /persist filesystem is defined in disko.nix
 
   environment.persistence."/persist" = {
     directories = [
       "/var/lib/systemd/coredump"
       "/var/lib/nixos"
       "/var/lib/tailscale"
-      { directory = "/home/dscv/.config/ghostty"; user = "dscv"; group = "users"; mode = "0700"; }
-      { directory = "/home/dscv/.config/Code"; user = "dscv"; group = "users"; mode = "0700"; }
-      { directory = "/home/dscv/dev"; user = "dscv"; group = "users"; mode = "0755"; }
+      {
+        directory = "/home/dscv/.config/ghostty";
+        user = "dscv";
+        group = "users";
+        mode = "0700";
+      }
+      {
+        directory = "/home/dscv/.config/Code";
+        user = "dscv";
+        group = "users";
+        mode = "0700";
+      }
+      {
+        directory = "/home/dscv/dev";
+        user = "dscv";
+        group = "users";
+        mode = "0755";
+      }
       # Extra dev persistence
-      { directory = "/home/dscv/.ssh"; user = "dscv"; group = "users"; mode = "0700"; }
-      { directory = "/home/dscv/.gitconfig"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.config/jj"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.jj"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.config/gh"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.config/direnv"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.local/share/direnv"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.config/devenv"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.config/uv"; user = "dscv"; group = "users"; }
-      { directory = "/home/dscv/.gnupg"; user = "dscv"; group = "users"; mode = "0700"; }
+      {
+        directory = "/home/dscv/.ssh";
+        user = "dscv";
+        group = "users";
+        mode = "0700";
+      }
+      {
+        directory = "/home/dscv/.gitconfig";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.config/jj";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.jj";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.config/gh";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.config/direnv";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.local/share/direnv";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.config/devenv";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.config/uv";
+        user = "dscv";
+        group = "users";
+      }
+      {
+        directory = "/home/dscv/.gnupg";
+        user = "dscv";
+        group = "users";
+        mode = "0700";
+      }
     ];
   };
 
@@ -199,11 +275,11 @@
         /home/dscv/dev /home/dscv/.config/Code /home/dscv/.config/ghostty /home/dscv/.ssh";
       ExecStartPost = "${pkgs.restic}/bin/restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --repo rclone:b2-blazar:nixos/blazar";
     };
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" ];
+    wants = ["network-online.target"];
+    after = ["network-online.target"];
   };
   systemd.timers."restic-backup" = {
-    wantedBy = [ "timers.target" ];
+    wantedBy = ["timers.target"];
     timerConfig.OnCalendar = "daily 03:30";
     unitConfig.Description = "Daily Restic backup";
   };

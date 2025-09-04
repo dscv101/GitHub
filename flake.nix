@@ -26,9 +26,18 @@
     };
   };
 
-  outputs = inputs@{ self, nixpkgs, flake-parts, home-manager, sops-nix, disko, impermanence, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" ];
+  outputs = inputs @ {
+    self,
+    nixpkgs,
+    flake-parts,
+    home-manager,
+    sops-nix,
+    disko,
+    impermanence,
+    ...
+  }:
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      systems = ["x86_64-linux"];
 
       flake = {
         nixosConfigurations.blazar = nixpkgs.lib.nixosSystem {
@@ -55,11 +64,16 @@
         };
       };
 
-      perSystem = { pkgs, ... }: {
+      perSystem = {pkgs, ...}: {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            git jujutsu direnv devenv
-            alejandra statix deadnix
+            git
+            jujutsu
+            direnv
+            devenv
+            alejandra
+            statix
+            deadnix
           ];
           shellHook = ''
             echo "Dev shell ready. Try: nix fmt (alejandra), statix check, deadnix, nix flake check"

@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   # DuckDB + tools
   environment.systemPackages = with pkgs; [
     duckdb

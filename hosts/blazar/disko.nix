@@ -2,8 +2,7 @@
 # Layout:
 # - EFI 1.5GiB (vfat)
 # - LUKS2 (rest) -> Btrfs subvols: @, @home, @nix, @log, @persist, @snapshots
-{ lib, ... }:
-{
+{...}: {
   disko.devices = {
     disk.nvme0n1 = {
       type = "disk";
@@ -18,7 +17,7 @@
               type = "filesystem";
               format = "vfat";
               mountpoint = "/boot";
-              mountOptions = [ "umask=0077" ];
+              mountOptions = ["umask=0077"];
             };
           };
           luks = {
@@ -29,10 +28,13 @@
               # keyFile / ask on install; passphrase prompt at boot
               content = {
                 type = "btrfs";
-                extraArgs = [ "-f" ];
+                extraArgs = ["-f"];
                 mountpoint = "/";
                 mountOptions = [
-                  "compress=zstd:3" "noatime" "ssd" "discard=async"
+                  "compress=zstd:3"
+                  "noatime"
+                  "ssd"
+                  "discard=async"
                 ];
                 subvolumes = {
                   "@".mountpoint = "/";
