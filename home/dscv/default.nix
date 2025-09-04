@@ -97,8 +97,6 @@ in
       ms-vscode.cpptools
       rust-lang.rust-analyzer
       ziglang.vscode-zig
-      ms-ossdata.vscode-postgresql
-      ms-mssql.mssql
       github.vscode-pull-request-github
     ];
   };
