@@ -13,10 +13,6 @@ in {
       RESTIC_PASSWORD = {};
       B2_ACCOUNT_ID = {};
       B2_ACCOUNT_KEY = {};
-      RCLONE_CONFIG = {
-        format = "binary";
-        path = "${secretsDir}/rclone.conf";
-      };
 
       # Tailscale join
       TAILSCALE_AUTHKEY = {};

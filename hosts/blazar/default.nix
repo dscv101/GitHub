@@ -293,7 +293,7 @@
     description = "Restic backup to B2 via rclone";
     serviceConfig = {
       Type = "oneshot";
-      EnvironmentFile = "/run/secrets/restic_env"; # provided by sops (B2 creds + RESTIC_PASSWORD + RCLONE_CONFIG path)
+      EnvironmentFile = "/run/secrets/restic_env"; # provided by sops (B2 creds + RESTIC_PASSWORD)
       ExecStart = "${pkgs.restic}/bin/restic backup --repo rclone:b2-blazar:nixos/blazar \
         --exclude-file=/etc/restic/excludes.txt \
         /home/dscv/dev /home/dscv/.config/Code /home/dscv/.config/ghostty /home/dscv/.ssh";
