@@ -1,8 +1,9 @@
+---
 name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 # Cancel previous runs if a new commit is pushed
@@ -68,7 +69,7 @@ jobs:
         run: nix develop --command shfmt -d scripts/*.sh
 
       - name: Lint Markdown files
-        run: nix develop --command markdownlint *.md
+        run: nix develop --command markdownlint ./*.md
 
       - name: Lint YAML files
         run: nix develop --command yamllint .

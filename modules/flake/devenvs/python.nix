@@ -1,8 +1,11 @@
 _: {
-  perSystem = { pkgs, ... }: {
+  perSystem = {pkgs, ...}: {
     devenv.shells.python = {
       name = "python-dev";
-      
+
+      # Disable containers to avoid the current directory issue
+      containers = {};
+
       languages.python = {
         enable = true;
         version = "3.12";
@@ -11,40 +14,40 @@ _: {
           sync.enable = true;
         };
       };
-      
+
       packages = with pkgs; [
         # Python package manager and tools
         uv
-        
+
         # Linting and formatting
         ruff
         mypy
         bandit
-        
+
         # Testing and coverage
         python3Packages.pytest
         python3Packages.pytest-cov
         python3Packages.coverage
-        
+
         # Development tools
         python3Packages.ipython
         python3Packages.jupyterlab
         python3Packages.black
         python3Packages.isort
-        
+
         # Additional useful packages
         python3Packages.pip-tools
         python3Packages.virtualenv
         python3Packages.pipx
       ];
-      
+
       env = {
         PYTHONPATH = "$PWD";
         UV_CACHE_DIR = "$PWD/.uv-cache";
         MYPY_CACHE_DIR = "$PWD/.mypy_cache";
         PYTEST_CACHE_DIR = "$PWD/.pytest_cache";
       };
-      
+
       scripts = {
         # Python project management
         py-init.exec = ''
@@ -53,30 +56,30 @@ _: {
           uv add --dev pytest pytest-cov mypy ruff bandit
           echo "✅ Python project initialized!"
         '';
-        
+
         py-install.exec = ''
           echo "📦 Installing Python dependencies..."
           uv sync
         '';
-        
+
         py-test.exec = ''
           echo "🧪 Running Python tests..."
           uv run pytest --cov=. --cov-report=html --cov-report=term
         '';
-        
+
         py-lint.exec = ''
           echo "🔍 Running Python linting..."
           uv run ruff check .
           uv run mypy .
           uv run bandit -r .
         '';
-        
+
         py-format.exec = ''
           echo "🎨 Formatting Python code..."
           uv run ruff format .
           uv run ruff check --fix .
         '';
-        
+
         py-clean.exec = ''
           echo "🧹 Cleaning Python artifacts..."
           find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
@@ -88,7 +91,7 @@ _: {
           echo "✅ Python artifacts cleaned!"
         '';
       };
-      
+
       enterShell = ''
         echo "🐍 Python development environment ready!"
         echo ""

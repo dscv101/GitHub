@@ -1,14 +1,17 @@
 _: {
-  perSystem = { pkgs, ... }: {
+  perSystem = {pkgs, ...}: {
     devenv.shells.rust = {
       name = "rust-dev";
-      
+
+      # Disable containers to avoid the current directory issue
+      containers = {};
+
       languages.rust = {
         enable = true;
         channel = "stable";
-        components = [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" ];
+        components = ["rustc" "cargo" "clippy" "rustfmt" "rust-analyzer"];
       };
-      
+
       packages = with pkgs; [
         # Rust toolchain (additional tools)
         cargo-watch
@@ -20,26 +23,26 @@ _: {
         cargo-bloat
         cargo-deny
         cargo-nextest
-        
+
         # Development tools
-        bacon  # Background rust code checker
-        sccache  # Compilation cache
-        
+        bacon # Background rust code checker
+        sccache # Compilation cache
+
         # System dependencies commonly needed
         pkg-config
         openssl
-        
+
         # Documentation
         mdbook
       ];
-      
+
       env = {
         RUST_BACKTRACE = "1";
         CARGO_HOME = "$PWD/.cargo";
         RUSTUP_HOME = "$PWD/.rustup";
         SCCACHE_DIR = "$PWD/.sccache";
       };
-      
+
       scripts = {
         # Rust project management
         rust-init.exec = ''
@@ -47,51 +50,51 @@ _: {
           cargo init
           echo "✅ Rust project initialized!"
         '';
-        
+
         rust-build.exec = ''
           echo "🔨 Building Rust project..."
           cargo build
         '';
-        
+
         rust-test.exec = ''
           echo "🧪 Running Rust tests..."
           cargo nextest run || cargo test
         '';
-        
+
         rust-check.exec = ''
           echo "🔍 Running Rust checks..."
           cargo check
           cargo clippy -- -D warnings
           cargo fmt --check
         '';
-        
+
         rust-format.exec = ''
           echo "🎨 Formatting Rust code..."
           cargo fmt
         '';
-        
+
         rust-audit.exec = ''
           echo "🔒 Running security audit..."
           cargo audit
         '';
-        
+
         rust-outdated.exec = ''
           echo "📦 Checking for outdated dependencies..."
           cargo outdated
         '';
-        
+
         rust-clean.exec = ''
           echo "🧹 Cleaning Rust artifacts..."
           cargo clean
           echo "✅ Rust artifacts cleaned!"
         '';
-        
+
         rust-watch.exec = ''
           echo "👀 Starting Rust file watcher..."
           cargo watch -x check -x test
         '';
       };
-      
+
       enterShell = ''
         echo "🦀 Rust development environment ready!"
         echo ""

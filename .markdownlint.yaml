@@ -1,10 +1,11 @@
+---
 # Markdownlint configuration
 # See: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
 
 # Disable specific rules
 MD013: false  # Line length (we'll be flexible with this)
 MD033: false  # Allow inline HTML (useful for GitHub-specific features)
-MD041: false  # First line in file should be a top level header (not always needed)
+MD041: false  # First line in file should be a top level header
 
 # Configure specific rules
 MD007:

@@ -1,38 +1,41 @@
 _: {
-  perSystem = { pkgs, ... }: {
+  perSystem = {pkgs, ...}: {
     devenv.shells.zig = {
       name = "zig-dev";
-      
+
+      # Disable containers to avoid the current directory issue
+      containers = {};
+
       languages.zig = {
         enable = true;
       };
-      
+
       packages = with pkgs; [
         # Zig toolchain
         zig
-        zls  # Zig Language Server
-        
+        zls # Zig Language Server
+
         # Development tools
         gdb
         lldb
         valgrind
-        
+
         # Build tools
         cmake
         ninja
-        
+
         # System dependencies
         pkg-config
-        
+
         # Documentation
         doxygen
       ];
-      
+
       env = {
         ZIG_GLOBAL_CACHE_DIR = "$PWD/.zig-cache";
         ZIG_LOCAL_CACHE_DIR = "$PWD/zig-cache";
       };
-      
+
       scripts = {
         # Zig project management
         zig-init.exec = ''
@@ -40,56 +43,56 @@ _: {
           zig init-exe
           echo "✅ Zig executable project initialized!"
         '';
-        
+
         zig-init-lib.exec = ''
           echo "⚡ Initializing Zig library..."
           zig init-lib
           echo "✅ Zig library project initialized!"
         '';
-        
+
         zig-build.exec = ''
           echo "🔨 Building Zig project..."
           zig build
         '';
-        
+
         zig-run.exec = ''
           echo "🚀 Running Zig project..."
           zig build run
         '';
-        
+
         zig-test.exec = ''
           echo "🧪 Running Zig tests..."
           zig build test
         '';
-        
+
         zig-check.exec = ''
           echo "🔍 Checking Zig code..."
           zig fmt --check .
           zig build test
         '';
-        
+
         zig-format.exec = ''
           echo "🎨 Formatting Zig code..."
           zig fmt .
         '';
-        
+
         zig-clean.exec = ''
           echo "🧹 Cleaning Zig artifacts..."
           rm -rf zig-cache zig-out .zig-cache
           echo "✅ Zig artifacts cleaned!"
         '';
-        
+
         zig-debug.exec = ''
           echo "🐛 Building debug version..."
           zig build -Doptimize=Debug
         '';
-        
+
         zig-release.exec = ''
           echo "🚀 Building release version..."
           zig build -Doptimize=ReleaseFast
         '';
       };
-      
+
       enterShell = ''
         echo "⚡ Zig development environment ready!"
         echo ""

@@ -74,7 +74,5 @@ _: {
         echo ""
       '';
     };
-
-    formatter = pkgs.alejandra;
   };
 }
