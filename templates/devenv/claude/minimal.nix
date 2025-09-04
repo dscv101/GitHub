@@ -58,9 +58,7 @@
   # Basic shell configuration for Claude compatibility
   shell = pkgs.bash;
 
-  # Ensure git is properly configured for Claude operations
-  git-hooks = {
-    # Enable basic git hooks that Claude can trigger
-    enable = lib.mkDefault false; # Disabled by default, enable in with-hooks.nix
-  };
+  # Git configuration for Claude operations
+  # Note: git-hooks are not part of devenv core, use pre-commit-hooks.nix instead
+  # See with-hooks.nix template for git hooks integration
 }
