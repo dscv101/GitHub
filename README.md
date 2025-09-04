@@ -130,6 +130,7 @@ just jj-pull [remote]           # Pull from remote
 ```
 
 **Legacy commands** (deprecated, use jj-* versions instead):
+
 - `just status` → `just jj-status`
 - `just log` → `just jj-log`  
 - `just diff` → `just jj-diff`
