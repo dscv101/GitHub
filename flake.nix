@@ -1,5 +1,5 @@
 {
-  description = "nix-blazar (fixed2): NixOS flake for blazar with Niri, HM, NVIDIA Wayland, sops-nix, disko, impermanence";
+  description = "Blazar NixOS flake (Wayland/Niri, NVIDIA GBM, HM, sops-nix, disko, impermanence)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -15,49 +15,67 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    impermanence = {
+      url = "github:nix-community/impermanence";
+    };
+
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    impermanence = { url = "github:nix-community/impermanence"; };
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ self, nixpkgs, flake-parts, home-manager, sops-nix, disko, impermanence, ... }:
+  outputs = inputs@{ self, nixpkgs, flake-parts, home-manager, sops-nix, impermanence, disko, fenix, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" ];
 
-      flake = {
-        nixosConfigurations.blazar = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            disko.nixosModules.disko
-            sops-nix.nixosModules.sops
-            impermanence.nixosModules.impermanence
-
-            ./hosts/blazar
-            ./profiles/common
-            ./profiles/desktop-niri
-            ./profiles/devtoolchain
-            ./profiles/nvidia
-            ./secrets/sops
-
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.dscv = import ./home/dscv;
-            }
-          ];
+      perSystem = { system, pkgs, ... }: {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [ git nixfmt-classic just ];
         };
       };
 
-      perSystem = { pkgs, ... }: {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [ git jujutsu direnv devenv alejandra statix deadnix ];
-          shellHook = "echo Dev shell: nix fmt / statix check / deadnix / nix flake check";
+      flake = {
+        nixosConfigurations = {
+          blazar = let
+            system = "x86_64-linux";
+            pkgs = import nixpkgs {
+              inherit system;
+              config.allowUnfree = true;
+            };
+          in nixpkgs.lib.nixosSystem {
+            inherit system;
+            specialArgs = { inherit inputs; };
+            modules = [
+              # Base + host modules
+              ./nixos/common.nix
+              ./hosts/blazar/hardware.nix
+              ./hosts/blazar/disko.nix
+              ./hosts/blazar/default.nix
+
+              # Third-party modules
+              disko.nixosModules.disko
+              home-manager.nixosModules.home-manager
+              sops-nix.nixosModules.sops
+              impermanence.nixosModules.impermanence
+
+              # Workaround override for HM oneshot service restart
+              ./nixos/overrides/home-manager-service.nix
+
+              # Home-Manager wiring
+              {
+                home-manager.useGlobalPkgs = true;
+                home-manager.useUserPackages = true;
+                home-manager.users.dscv = import ./home/dscv;
+              }
+            ];
+          };
         };
-        formatter = pkgs.alejandra;
       };
     };
 }

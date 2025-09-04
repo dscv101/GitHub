@@ -1,20 +1,27 @@
-# nix-blazar (fixed2)
+# Blazar NixOS Flake
 
-This version fixes:
-- `programs.fzf` defined at system level (moved to Home Manager)
-- Removed redundant manual `/persist` mount (Disko mounts it)
-- Prior `loginctl.linger` option issue already resolved
+Wayland-only desktop based on **Niri** with NVIDIA (GBM), Home Manager, `sops-nix`, `disko`, and impermanence.
 
-## Install (ISO + Disko)
+> ⚠️ Replace the disk device in `hosts/blazar/disko.nix` before installing (`DEVICE_REPLACE_ME`).
+
+## Quick start
+
 ```bash
-nix-shell -p git --run 'git clone <your repo> nix-blazar && cd nix-blazar'
-sudo nix run github:nix-community/disko -- --mode disko ./hosts/blazar/disko.nix
-sudo nixos-install --flake .#blazar
-reboot
+# format/install (from NixOS installer ISO with flakes enabled)
+nix --extra-experimental-features 'nix-command flakes' run github:nix-community/disko -- \
+  --mode disko ./hosts/blazar/disko.nix
+
+nixos-install --flake .#blazar
 ```
-After boot:
-```bash
-./scripts/init-secrets.sh
-sops -e -i secrets/sops/secrets.sops.yaml
+
+## Post-install
+- Put your age key at `/var/lib/sops-nix/key.txt` and replace `secrets/secrets.yaml` with a real SOPS-encrypted file.
+- Set `restic` repository and rclone remote, then `sudo systemctl enable --now restic-backups-home.timer`.
+- Log into VS Code and install additional marketplace extensions (Claude Code, PostgreSQL) as desired.
+
+## Notes
+- HM service oneshot restart override included at `nixos/overrides/home-manager-service.nix`.
+- Impermanence persists: `/var/lib/systemd/coredump`, `/var/lib/nixos`, `/var/lib/tailscale`, and key user dirs.
+- Greetd + Tuigreet starts **Niri**; App launcher bound to **Super+Space** via Fuzzel.
 ```
-Fill Tailscale/B2/Restic secrets and rebuild: `sudo nixos-rebuild switch --flake .#blazar`.
+
