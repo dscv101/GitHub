@@ -170,117 +170,117 @@ in {
   xdg = {
     configFile = {
       "waybar/config.jsonc".text = ''
-    {
-      "position": "top",
-      "height": 28,
-      "modules-left": ["niri/workspaces", "niri/mode", "window"],
-      "modules-center": ["clock"],
-      "modules-right": ["cpu", "memory", "disk", "network", "pulseaudio", "power-profiles-daemon", "tray"],
-      "clock": { "format": "{:%a %b %d  %H:%M}" },
-      "window": { "max-length": 60 },
-      "cpu": { "interval": 3 },
-      "memory": { "interval": 5 },
-      "disk": { "interval": 30, "path": "/" },
-      "network": {
-        "format-wired": "{ifname}  {ipaddr}",
-        "format-disconnected": "disconnected",
-        "family": "ipv4"
-      },
-      "pulseaudio": {
-        "scroll-step": 2,
-        "format": "{volume}% {icon}",
-        "format-muted": "muted "
-      },
-      "power-profiles-daemon": { "profiles": ["power-saver","balanced","performance"] },
-      "tray": { "spacing": 6 }
-    }
-    '';
+        {
+          "position": "top",
+          "height": 28,
+          "modules-left": ["niri/workspaces", "niri/mode", "window"],
+          "modules-center": ["clock"],
+          "modules-right": ["cpu", "memory", "disk", "network", "pulseaudio", "power-profiles-daemon", "tray"],
+          "clock": { "format": "{:%a %b %d  %H:%M}" },
+          "window": { "max-length": 60 },
+          "cpu": { "interval": 3 },
+          "memory": { "interval": 5 },
+          "disk": { "interval": 30, "path": "/" },
+          "network": {
+            "format-wired": "{ifname}  {ipaddr}",
+            "format-disconnected": "disconnected",
+            "family": "ipv4"
+          },
+          "pulseaudio": {
+            "scroll-step": 2,
+            "format": "{volume}% {icon}",
+            "format-muted": "muted "
+          },
+          "power-profiles-daemon": { "profiles": ["power-saver","balanced","performance"] },
+          "tray": { "spacing": 6 }
+        }
+      '';
 
       "waybar/style.css".text = ''
-    /* Minimal Catppuccin-ish styling */
-    * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
-    window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
-    #workspaces button.focused { background: #89b4fa; color: #1e1e2e; }
-    #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
-    '';
+        /* Minimal Catppuccin-ish styling */
+        * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
+        window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
+        #workspaces button.focused { background: #89b4fa; color: #1e1e2e; }
+        #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
+      '';
 
       # Niri configuration (KDL)
       "niri/config.kdl".text = ''
-    layout {
-      gaps 8
-      border 2
-    }
+        layout {
+          gaps 8
+          border 2
+        }
 
-    input { focus-follows-mouse false }
+        input { focus-follows-mouse false }
 
-    monitor "DP-1" {
-      scale 1.0
-      mode 1920x1080@60.00Hz
-      transform normal
-      vrr off
-      primary true
-    }
+        monitor "DP-1" {
+          scale 1.0
+          mode 1920x1080@60.00Hz
+          transform normal
+          vrr off
+          primary true
+        }
 
-    # Startup apps
-    spawn "ghostty"
-    spawn "code"
+        # Startup apps
+        spawn "ghostty"
+        spawn "code"
 
-    binds {
-      # launchers
-      "SUPER+ENTER" => spawn "ghostty"
-      "SUPER+Space" => spawn "fuzzel"
-      "SUPER+E"     => spawn "code"
+        binds {
+          # launchers
+          "SUPER+ENTER" => spawn "ghostty"
+          "SUPER+Space" => spawn "fuzzel"
+          "SUPER+E"     => spawn "code"
 
-      # focus
-      "SUPER+H"     => focus left
-      "SUPER+J"     => focus down
-      "SUPER+K"     => focus up
-      "SUPER+L"     => focus right
-      "SUPER+TAB"   => focus next
-      "SUPER+SHIFT+TAB" => focus previous
+          # focus
+          "SUPER+H"     => focus left
+          "SUPER+J"     => focus down
+          "SUPER+K"     => focus up
+          "SUPER+L"     => focus right
+          "SUPER+TAB"   => focus next
+          "SUPER+SHIFT+TAB" => focus previous
 
-      # move/resize
-      "SUPER+SHIFT+H" => move left
-      "SUPER+SHIFT+J" => move down
-      "SUPER+SHIFT+K" => move up
-      "SUPER+SHIFT+L" => move right
-      "SUPER+CTRL+H"  => resize decrease-width
-      "SUPER+CTRL+L"  => resize increase-width
-      "SUPER+CTRL+J"  => resize increase-height
-      "SUPER+CTRL+K"  => resize decrease-height
+          # move/resize
+          "SUPER+SHIFT+H" => move left
+          "SUPER+SHIFT+J" => move down
+          "SUPER+SHIFT+K" => move up
+          "SUPER+SHIFT+L" => move right
+          "SUPER+CTRL+H"  => resize decrease-width
+          "SUPER+CTRL+L"  => resize increase-width
+          "SUPER+CTRL+J"  => resize increase-height
+          "SUPER+CTRL+K"  => resize decrease-height
 
-      # layout
-      "SUPER+F"     => fullscreen
-      "SUPER+SHIFT+Space" => toggle-floating
-      "SUPER+Q"     => close-window
+          # layout
+          "SUPER+F"     => fullscreen
+          "SUPER+SHIFT+Space" => toggle-floating
+          "SUPER+Q"     => close-window
 
-      # workspaces 1..9
-      "SUPER+1" => switch-workspace 1
-      "SUPER+2" => switch-workspace 2
-      "SUPER+3" => switch-workspace 3
-      "SUPER+4" => switch-workspace 4
-      "SUPER+5" => switch-workspace 5
-      "SUPER+6" => switch-workspace 6
-      "SUPER+7" => switch-workspace 7
-      "SUPER+8" => switch-workspace 8
-      "SUPER+9" => switch-workspace 9
+          # workspaces 1..9
+          "SUPER+1" => switch-workspace 1
+          "SUPER+2" => switch-workspace 2
+          "SUPER+3" => switch-workspace 3
+          "SUPER+4" => switch-workspace 4
+          "SUPER+5" => switch-workspace 5
+          "SUPER+6" => switch-workspace 6
+          "SUPER+7" => switch-workspace 7
+          "SUPER+8" => switch-workspace 8
+          "SUPER+9" => switch-workspace 9
 
-      "SUPER+SHIFT+1" => move-to-workspace 1
-      "SUPER+SHIFT+2" => move-to-workspace 2
-      "SUPER+SHIFT+3" => move-to-workspace 3
-      "SUPER+SHIFT+4" => move-to-workspace 4
-      "SUPER+SHIFT+5" => move-to-workspace 5
-      "SUPER+SHIFT+6" => move-to-workspace 6
-      "SUPER+SHIFT+7" => move-to-workspace 7
-      "SUPER+SHIFT+8" => move-to-workspace 8
-      "SUPER+SHIFT+9" => move-to-workspace 9
+          "SUPER+SHIFT+1" => move-to-workspace 1
+          "SUPER+SHIFT+2" => move-to-workspace 2
+          "SUPER+SHIFT+3" => move-to-workspace 3
+          "SUPER+SHIFT+4" => move-to-workspace 4
+          "SUPER+SHIFT+5" => move-to-workspace 5
+          "SUPER+SHIFT+6" => move-to-workspace 6
+          "SUPER+SHIFT+7" => move-to-workspace 7
+          "SUPER+SHIFT+8" => move-to-workspace 8
+          "SUPER+SHIFT+9" => move-to-workspace 9
 
-      # screenshots / clipboard
-      "PRINT"       => spawn "grimshot save active ~/Pictures/Screenshots"
-      "SHIFT+PRINT" => spawn "grimshot save area ~/Pictures/Screenshots"
-      "CTRL+PRINT"  => spawn "grimshot copy area"
-    }
-    '';
+          # screenshots / clipboard
+          "PRINT"       => spawn "grimshot save active ~/Pictures/Screenshots"
+          "SHIFT+PRINT" => spawn "grimshot save area ~/Pictures/Screenshots"
+          "CTRL+PRINT"  => spawn "grimshot copy area"
+        }
+      '';
     };
 
     # XDG portals (user side)
@@ -339,6 +339,4 @@ in {
       size = 11;
     };
   };
-
-
 }
