@@ -63,10 +63,10 @@ jobs:
         run: nix develop --command statix check .
 
       - name: Check shell scripts
-        run: nix develop --command shellcheck scripts/*.sh
+        run: nix develop --command shellcheck scripts/*.sh modules/nixos/hardware/scripts/*.sh
 
       - name: Check shell script formatting
-        run: nix develop --command shfmt -d scripts/*.sh
+        run: nix develop --command shfmt -d scripts/*.sh modules/nixos/hardware/scripts/*.sh
 
       - name: Lint Markdown files
         run: nix develop --command markdownlint ./*.md

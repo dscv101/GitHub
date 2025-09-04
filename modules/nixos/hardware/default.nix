@@ -3,6 +3,7 @@ _: {
     ./graphics.nix
     ./audio.nix
     ./power.nix
+    ./bootloader-cleanup.nix
   ];
 
   # Enable hardware support

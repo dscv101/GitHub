@@ -18,6 +18,15 @@ _: {
               format = "vfat";
               mountpoint = "/boot";
               mountOptions = ["umask=0077"];
+              # Example bootloader cleanup configuration
+              # Uncomment and configure as needed for cleanup operations
+              # bootloader-cleanup = {
+              #   enable = true;
+              #   targets = [ "grub" "systemd-boot" "efi-stub" ];
+              #   clean-nvram = true;
+              #   dry-run = false;
+              #   verbose = true;
+              # };
             };
           };
           luks = {
