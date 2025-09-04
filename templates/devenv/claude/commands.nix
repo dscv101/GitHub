@@ -5,9 +5,12 @@
 #
 # Usage: Add this to your devenv.nix file for custom Claude commands.
 
-{ pkgs, lib, config, ... }:
-
 {
+  pkgs,
+  lib,
+  config,
+  ...
+}: {
   # Claude Code integration with custom commands
   # Commands are defined as devenv scripts that Claude can discover and use
   
