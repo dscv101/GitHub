@@ -1,1 +1,3 @@
-{ ... }: { }
+{ lib ? import <nixpkgs/lib> {}, ... }:
+{
+}

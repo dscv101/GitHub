@@ -1,3 +1,3 @@
-{ pkgs, ... }: {
-  packages = with pkgs; [ python3 ];
+{
+  # template devenv file
 }

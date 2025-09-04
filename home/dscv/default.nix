@@ -1,3 +1,3 @@
-{ ... }: {
-  # Home Manager module placeholder (intentionally not imported here)
+{ lib ? import <nixpkgs/lib> {}, ... }:
+{
 }

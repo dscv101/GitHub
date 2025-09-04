@@ -1,6 +1,3 @@
-{ ... }: {
-  imports = [
-    ./hardware.nix
-    ./disko.nix
-  ];
+{ lib ? import <nixpkgs/lib> {}, ... }:
+{
 }

@@ -1,26 +1,17 @@
 {
-  description = "Updated, formatted flake with safe formatter and eval-safe NixOS config";
+  description = "nyx repo formatting + flake-parts fmt wrapper";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-  inputs.flake-parts.url = "github:hercules-ci/flake-parts";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
+  };
 
-  outputs = inputs @ { self, nixpkgs, flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" ];
-
-      imports = [
-        ./parts/fmt.nix
-      ];
-
-      perSystem = { pkgs, ... }: {
-        devShells.default = pkgs.mkShell { packages = [ pkgs.alejandra pkgs.shellcheck ]; };
-      };
-
-      flake = {
-        nixosConfigurations.blazar = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [ ./nixos/hosts/blazar.nix ];
-        };
-      };
+  outputs = inputs @ { self, flake-parts, ... }:
+    flake-parts.lib.mkFlake {
+      inherit inputs;
+      systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
+    } {
+      imports = [ ./parts/fmt.nix ];
     };
 }
