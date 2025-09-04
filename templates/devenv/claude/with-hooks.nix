@@ -9,8 +9,8 @@
 { pkgs, lib, config, ... }:
 
 {
-  # Enable Claude Code integration
-  claude.code.enable = true;
+  # Claude Code integration is enabled via environment variables and git hooks
+  # No special devenv configuration needed - Claude works with any devenv shell
 
   # Enhanced development packages for formatting and linting
   packages = with pkgs; [

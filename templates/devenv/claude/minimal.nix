@@ -8,8 +8,8 @@
 { pkgs, lib, config, ... }:
 
 {
-  # Enable Claude Code integration
-  claude.code.enable = true;
+  # Claude Code integration is enabled via environment variables and shell setup
+  # No special devenv configuration needed - Claude works with any devenv shell
 
   # Basic development packages that work well with Claude
   packages = with pkgs; [
