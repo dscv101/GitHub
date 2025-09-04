@@ -101,6 +101,8 @@
       efi.canTouchEfiVariables = true;
     };
     initrd.luks.devices.cryptroot.device = "/dev/disk/by-partlabel/luks";
+    # Use the latest kernel packages
+    kernelPackages = pkgs.linuxPackages_latest;
     kernelParams = [
       "nvidia_drm.modeset=1"
       "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
