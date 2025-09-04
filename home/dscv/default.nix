@@ -5,136 +5,170 @@
 }: let
   catppuccin = pkgs.catppuccin-gtk;
 in {
-  home.username = "dscv";
-  home.homeDirectory = "/home/dscv";
-  programs.home-manager.enable = true;
-
-  # Shell & Starship
-  programs.zsh = {
-    enable = true;
-    enableCompletion = true;
-    autosuggestion.enable = true;
-    syntaxHighlighting.enable = true;
-    oh-my-zsh.enable = false;
-    initContent = ''
-      bindkey -v  # vi-mode
-    '';
-    shellAliases = {
-      ll = "eza -l --git";
-      la = "eza -la --git";
-      gs = "jj st";
-      gl = "jj ls";
-      gd = "jj d";
-      gco = "jj new -m";
-      py = "python";
-      ipy = "ipython";
-    };
+  home = {
+    username = "dscv";
+    homeDirectory = "/home/dscv";
+    packages = with pkgs; [
+      # Dev CLIs (global)
+      uv
+      ruff
+      mypy
+      python3Packages.ipython
+      python3Packages.jupyterlab
+      # SQL tooling
+      duckdb
+      sqlite
+      postgresql
+      pgcli
+      # Wayland desktop helpers
+      waybar
+      swaylock-effects
+      swww
+      swappy
+      grim
+      slurp
+      wl-clipboard
+      cliphist
+    ];
+    stateVersion = "24.11";
   };
 
-  programs.starship = {
-    enable = true;
-    settings = {
-      add_newline = true;
-      cmd_duration.disabled = false;
-      time.disabled = false;
-      nix_shell.disabled = false;
-      git_branch.disabled = false;
-      git_status.disabled = false;
-      python.disabled = false;
-    };
-  };
+  programs = {
+    home-manager.enable = true;
 
-  programs.atuin = {
-    enable = true;
-    enableZshIntegration = true;
-    settings = {auto_sync = false;};
-  };
-
-  # Direnv + devenv
-  programs.direnv = {
-    enable = true;
-    nix-direnv.enable = true;
-  };
-
-  # Git & JJ
-  programs.git = {
-    enable = true;
-    userName = "dscv101";
-    userEmail = "derek.vitrano@gmail.com";
-    signing = {
-      signByDefault = false;
-      key = "";
-    };
-  };
-  programs.jujutsu = {
-    enable = true;
-    settings = {
-      user = {
-        name = "dscv101";
-        email = "derek.vitrano@gmail.com";
-      };
-      ui.default-command = "status";
-      git.auto-local-bookmark = true;
-      git.push-bookmark-prefix = "trunk";
-      templates = {};
-      aliases = {
-        st = "status -s";
-        ls = ''log -r ::@ --limit 20 --template "commit_id.short() ++ \"  \" ++ description.first_line()"'';
-        d = "diff -r @-";
-        amend = "amend -i";
-        new = "new -m \"\"";
-        mvup = "rebase -r @ -d @-";
-        sync = "!jj git fetch && jj rebase -r @ -d trunk()";
-        land = "!jj git push && gh pr create --fill --draft --web";
-      };
-      git = {
-        auto = true;
-        push-branches = true;
+    # Shell & Starship
+    zsh = {
+      enable = true;
+      enableCompletion = true;
+      autosuggestion.enable = true;
+      syntaxHighlighting.enable = true;
+      oh-my-zsh.enable = false;
+      initContent = ''
+        bindkey -v  # vi-mode
+      '';
+      shellAliases = {
+        ll = "eza -l --git";
+        la = "eza -la --git";
+        gs = "jj st";
+        gl = "jj ls";
+        gd = "jj d";
+        gco = "jj new -m";
+        py = "python";
+        ipy = "ipython";
       };
     };
-  };
 
-  # VS Code (official) with extensions & Wayland flags
-  programs.vscode = {
-    enable = true;
-    package = pkgs.vscode;
-    profiles.default = {
-      enableUpdateCheck = false;
-      userSettings = {
-        "window.titleBarStyle" = "custom";
-        "window.autoDetectColorScheme" = true;
-        "editor.formatOnSave" = true;
-        "editor.codeActionsOnSave" = {
-          "source.fixAll" = true;
-          "source.organizeImports" = true;
+    starship = {
+      enable = true;
+      settings = {
+        add_newline = true;
+        cmd_duration.disabled = false;
+        time.disabled = false;
+        nix_shell.disabled = false;
+        git_branch.disabled = false;
+        git_status.disabled = false;
+        python.disabled = false;
+      };
+    };
+
+    atuin = {
+      enable = true;
+      enableZshIntegration = true;
+      settings = {auto_sync = false;};
+    };
+
+    # Direnv + devenv
+    direnv = {
+      enable = true;
+      nix-direnv.enable = true;
+    };
+
+    # Git & JJ
+    git = {
+      enable = true;
+      userName = "dscv101";
+      userEmail = "derek.vitrano@gmail.com";
+      signing = {
+        signByDefault = false;
+        key = "";
+      };
+    };
+    jujutsu = {
+      enable = true;
+      settings = {
+        user = {
+          name = "dscv101";
+          email = "derek.vitrano@gmail.com";
         };
-        "terminal.integrated.defaultProfile.linux" = "zsh";
-        "workbench.colorTheme" = "Catppuccin Mocha";
-        "security.workspace.trust.untrustedFiles" = "open";
-        "telemetry.telemetryLevel" = "off";
+        ui.default-command = "status";
+        git = {
+          auto-local-bookmark = true;
+          push-bookmark-prefix = "trunk";
+          auto = true;
+          push-branches = true;
+        };
+        templates = {};
+        aliases = {
+          st = "status -s";
+          ls = ''log -r ::@ --limit 20 --template "commit_id.short() ++ \"  \" ++ description.first_line()"'';
+          d = "diff -r @-";
+          amend = "amend -i";
+          new = "new -m \"\"";
+          mvup = "rebase -r @ -d @-";
+          sync = "!jj git fetch && jj rebase -r @ -d trunk()";
+          land = "!jj git push && gh pr create --fill --draft --web";
+        };
       };
-      extensions = with pkgs.vscode-extensions; [
-        ms-python.python
-        ms-toolsai.jupyter
-        charliermarsh.ruff
-        ms-vscode.cpptools
-        rust-lang.rust-analyzer
-        ziglang.vscode-zig
-        github.vscode-pull-request-github
-      ];
     };
-  };
 
-  # Ghostty terminal
-  programs.ghostty.enable = true;
-  programs.ghostty.settings = {
-    font = "JetBrainsMono Nerd Font";
-    font-size = 11;
-    theme = "Catppuccin-Mocha";
+    # VS Code (official) with extensions & Wayland flags
+    vscode = {
+      enable = true;
+      package = pkgs.vscode;
+      profiles.default = {
+        enableUpdateCheck = false;
+        userSettings = {
+          "window.titleBarStyle" = "custom";
+          "window.autoDetectColorScheme" = true;
+          "editor.formatOnSave" = true;
+          "editor.codeActionsOnSave" = {
+            "source.fixAll" = true;
+            "source.organizeImports" = true;
+          };
+          "terminal.integrated.defaultProfile.linux" = "zsh";
+          "workbench.colorTheme" = "Catppuccin Mocha";
+          "security.workspace.trust.untrustedFiles" = "open";
+          "telemetry.telemetryLevel" = "off";
+        };
+        extensions = with pkgs.vscode-extensions; [
+          ms-python.python
+          ms-toolsai.jupyter
+          charliermarsh.ruff
+          ms-vscode.cpptools
+          rust-lang.rust-analyzer
+          ziglang.vscode-zig
+          github.vscode-pull-request-github
+        ];
+      };
+    };
+
+    # Ghostty terminal
+    ghostty = {
+      enable = true;
+      settings = {
+        font = "JetBrainsMono Nerd Font";
+        font-size = 11;
+        theme = "Catppuccin-Mocha";
+      };
+    };
+
+    # Fuzzel launcher
+    fuzzel.enable = true;
   };
 
   # Waybar config
-  xdg.configFile."waybar/config.jsonc".text = ''
+  xdg = {
+    configFile."waybar/config.jsonc".text = ''
     {
       "position": "top",
       "height": 28,
@@ -160,7 +194,7 @@ in {
       "tray": { "spacing": 6 }
     }
   '';
-  xdg.configFile."waybar/style.css".text = ''
+    configFile."waybar/style.css".text = ''
     /* Minimal Catppuccin-ish styling */
     * { font-family: "JetBrainsMono Nerd Font", Inter, sans-serif; font-size: 12px; }
     window#waybar { background: rgba(30,30,46,0.9); color: #c6d0f5; }
@@ -168,8 +202,8 @@ in {
     #clock, #cpu, #memory, #disk, #network, #pulseaudio, #tray { padding: 0 8px; }
   '';
 
-  # Niri configuration (KDL)
-  xdg.configFile."niri/config.kdl".text = ''
+    # Niri configuration (KDL)
+    configFile."niri/config.kdl".text = ''
     layout {
       gaps 8
       border 2
