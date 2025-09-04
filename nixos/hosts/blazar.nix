@@ -1,32 +1,39 @@
-{ config, lib, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 {
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nixpkgs.hostPlatform = "x86_64-linux";
 
   networking.hostName = "blazar";
 
-  # Silence warning & encode baseline expectations for this system.
-  system.stateVersion = "24.05";
-
-  # Minimal root FS for CI evaluation; replace with your real disk/disko setup on machines.
+  # Provide a root FS so evaluation works in CI (no real disks needed).
   fileSystems."/" = {
     device = "tmpfs";
     fsType = "tmpfs";
-    options = [ "mode=0755" "size=2G" ];
+    options = [ "mode=0755" "size=512M" ];
   };
 
-  # Old `sound.enable` is removed; if you need audio, configure PipeWire/ALSA explicitly:
-  # services.pipewire = {
-  #   enable = true;
-  #   alsa.enable = true;
-  #   pulse.enable = true;
-  # };
-  # hardware.alsa.enable = true;  # only if you need user-space ALSA specifically
+  # Users
+  users.users.dscv = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" ];
+    home = "/home/dscv";
+  };
 
-  # rclone: there is no NixOS option `programs.rclone`; install it as a package:
-  environment.systemPackages = with pkgs; [ rclone git vim ];
+  # Basic packages (include rclone as a package rather than the non-existent programs.rclone option)
+  environment.systemPackages = with pkgs; [
+    git
+    vim
+    rclone
+  ];
 
-  # Ensure we don't globally force oneshot services to Restart=always.
+  services.openssh.enable = true;
+
+  # Avoid the oneshot+restart issue seen in logs by explicitly ensuring no restart.
   systemd.services.home-manager-dscv.serviceConfig = {
-    Restart = lib.mkForce "no";
+    Type = "oneshot";
+    Restart = "no";
   };
+
+  # Pin the state version to avoid warnings and unintended migrations.
+  system.stateVersion = "24.05";
 }

@@ -1,31 +1,20 @@
-# nyx (fixed sample)
+# nyx-updated-repo
 
-This minimal repo is structured to **pass `nix flake check`** for CI and to address all errors shown in your logs:
+A minimal, stable Nix flake layout (inspired by `dscv101/nyx`) that evaluates cleanly on CI.
+- Uses `flake-parts`
+- Provides a dev shell
+- Exposes `nixosConfigurations.blazar` that **does not** require a real disk (rootfs on tmpfs)
+- Integrates Home Manager without deprecated options
+- Avoids problematic options seen in your logs (`programs.rclone`, duplicate `home.file` targets, oneshot+restart, missing `system.stateVersion`)
 
-- Removed deprecated `sound.enable`.
-- Added a **temporary tmpfs root** so evaluation doesn't fail in CI: `fileSystems."/".fsType = "tmpfs"`.
-  Replace this with your real `disko`/`fileSystems` config on machines.
-- Removed `programs.rclone` (doesn't exist); install `rclone` via `environment.systemPackages` or Home Manager `home.packages`.
-- Avoided setting `Restart=always` on oneshot services (which broke Home Manager service).
-- Cleaned up VS Code extensions to ones that are **packaged** in nixpkgs to avoid attribute errors.
-- Set `system.stateVersion = "24.05"`.
-
-## Layout
-
-- `flake.nix` — flake-parts + NixOS config for host `blazar`
-- `nixos/hosts/blazar.nix` — minimal NixOS module
-- `home/dscv/home.nix` — Home Manager config
-
-## Usage
-
+## Quick start
 ```bash
-nix flake show
+# format
+nix fmt
+
+# check (builds devshell, evaluates nixosConfigurations)
 nix flake check
-# build/test the NixOS config (eval only in CI)
+
+# build the NixOS config (evaluation only, because rootfs is tmpfs)
 nix build .#nixosConfigurations.blazar.config.system.build.toplevel
 ```
-
-## Notes
-
-- Replace the tmpfs root with your real disk layout or disko config before installing on hardware.
-- If you need un-packaged VS Code extensions, use `pkgs.vscode-utils.extensionsFromVscodeMarketplace` or an overlay, but be aware this can break reproducibility/CI.
