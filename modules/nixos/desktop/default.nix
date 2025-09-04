@@ -6,24 +6,24 @@
   ];
 
   # Common desktop applications
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = [
     # GUI applications
-    firefox
-    xfce.thunar
-    zathura
-    imv
-    mpv
+    pkgs.firefox
+    pkgs.xfce.thunar
+    pkgs.zathura
+    pkgs.imv
+    pkgs.mpv
 
     # Screenshots / wayland tools
-    grim
-    slurp
-    swappy
-    swww
-    wl-clipboard
-    cliphist
+    pkgs.grim
+    pkgs.slurp
+    pkgs.swappy
+    pkgs.swww
+    pkgs.wl-clipboard
+    pkgs.cliphist
 
     # Theming
-    papirus-icon-theme
+    pkgs.papirus-icon-theme
   ];
 
   # XDG portals for Wayland

@@ -17,14 +17,14 @@
         "security.workspace.trust.untrustedFiles" = "open";
         "telemetry.telemetryLevel" = "off";
       };
-      extensions = with pkgs.vscode-extensions; [
-        ms-python.python
-        ms-toolsai.jupyter
-        charliermarsh.ruff
-        ms-vscode.cpptools
-        rust-lang.rust-analyzer
-        ziglang.vscode-zig
-        github.vscode-pull-request-github
+      extensions = [
+        pkgs.vscode-extensions.ms-python.python
+        pkgs.vscode-extensions.ms-toolsai.jupyter
+        pkgs.vscode-extensions.charliermarsh.ruff
+        pkgs.vscode-extensions.ms-vscode.cpptools
+        pkgs.vscode-extensions.rust-lang.rust-analyzer
+        pkgs.vscode-extensions.ziglang.vscode-zig
+        pkgs.vscode-extensions.github.vscode-pull-request-github
       ];
     };
   };

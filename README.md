@@ -5,6 +5,7 @@ A modular NixOS flake configuration using flake-parts for **blazar** (Ryzen 7 58
 Refactored to use a modular architecture inspired by [Isabel Roses' dotfiles](https://github.com/isabelroses/dotfiles).
 
 ## Features
+
 - **Modular Architecture**: Clean separation of concerns with organized modules
 - **Flake-parts Integration**: Leverages flake-parts for better organization
 - **Wayland/GBM** with NVIDIA (closed driver), Niri compositor, greetd+tuigreet login
@@ -18,7 +19,7 @@ Refactored to use a modular architecture inspired by [Isabel Roses' dotfiles](ht
 
 ## Structure
 
-```
+```text
 ├── flake.nix                 # Main flake entry point
 ├── modules/
 │   ├── flake/                # Flake-parts modules
@@ -48,6 +49,7 @@ Refactored to use a modular architecture inspired by [Isabel Roses' dotfiles](ht
 ```
 
 ## Install (from ISO, declarative Disko)
+
 ```bash
 # 1) Boot official NixOS ISO, ensure internet
 nix-shell -p git --run 'git clone <your-fork-or-local-path> nix-blazar && cd nix-blazar'
@@ -61,11 +63,14 @@ reboot
 ```
 
 ## First boot checklist
+
 1. Run `./scripts/init-secrets.sh` to generate the age key and create a placeholder `secrets.sops.yaml`.
 2. Put your **Tailscale** auth key, **B2** creds, **RESTIC_PASSWORD**, etc. in `secrets/sops/secrets.sops.yaml` and encrypt with:
+
    ```bash
    sops -e -i secrets/sops/secrets.sops.yaml
    ```
+
 3. (Optional) Add an rclone config as a SOPS file/secret if you prefer a standalone config file.
 4. Login as **dscv**; greetd will present a TUI; select the **niri** session.
 5. Verify Wayland: `echo $XDG_SESSION_TYPE` → `wayland`.
@@ -73,6 +78,7 @@ reboot
 ## Usage
 
 ### Building the System
+
 ```bash
 # Build and switch to the new configuration
 sudo nixos-rebuild switch --flake .#blazar
@@ -82,6 +88,7 @@ sudo nixos-rebuild test --flake .#blazar
 ```
 
 ### Development
+
 ```bash
 # Enter development shell with all tools
 nix develop
@@ -98,6 +105,7 @@ deadnix         # Find dead code
 ```
 
 ### Common Commands
+
 - JJ status: `jj st`
 - JJ log: `jj ls`
 - JJ diff: `jj d`
@@ -107,6 +115,7 @@ deadnix         # Find dead code
 This configuration was refactored from a monolithic structure to a modular one:
 
 ### Key Changes
+
 - `profiles/common` → `modules/base` + `modules/nixos`
 - `profiles/desktop-niri` → `modules/nixos/desktop`
 - `profiles/devtoolchain` → `modules/nixos/services/development`
@@ -114,12 +123,14 @@ This configuration was refactored from a monolithic structure to a modular one:
 - `hosts/blazar` → `systems/blazar`
 
 ### Benefits
+
 - **Easier Maintenance**: Changes are localized to specific modules
 - **Better Organization**: Related configuration is grouped together
 - **Improved Reusability**: Modules can be shared between systems
 - **Enhanced Testing**: Individual modules can be tested independently
 
 ## Notes
+
 - This repo is a **skeleton**: adjust as needed (Waybar style, Niri output names, etc.)
 - For NVIDIA Wayland quirks, `WLR_NO_HARDWARE_CURSORS=1` is set; you can remove if not needed
 - Impermanence binds from `/persist` to listed paths; see `systems/blazar/default.nix`

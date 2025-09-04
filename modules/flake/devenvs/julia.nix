@@ -6,33 +6,33 @@ _: {
       # Disable containers to avoid the current directory issue
       containers = {};
 
-      packages = with pkgs; [
+      packages = [
         # Julia
-        julia-bin
+        pkgs.julia-bin
 
         # Development tools
-        git
+        pkgs.git
 
         # System dependencies commonly needed for Julia packages
-        gcc
-        gfortran
-        pkg-config
-        cmake
+        pkgs.gcc
+        pkgs.gfortran
+        pkgs.pkg-config
+        pkgs.cmake
 
         # Linear algebra libraries
-        openblas
-        lapack
+        pkgs.openblas
+        pkgs.lapack
 
         # Graphics and plotting dependencies
-        cairo
-        pango
-        glib
+        pkgs.cairo
+        pkgs.pango
+        pkgs.glib
 
         # Additional useful tools
-        jupyter
+        pkgs.jupyter
 
         # Documentation
-        pandoc
+        pkgs.pandoc
       ];
 
       env = {

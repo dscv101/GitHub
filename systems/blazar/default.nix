@@ -36,7 +36,7 @@
       systemd-boot.enable = true;
       efi.canTouchEfiVariables = true;
     };
-    initrd.luks.devices.cryptroot.device = "/dev/disk/by-partlabel/luks";
+    # LUKS device configuration is handled by disko
     # Use the latest kernel packages
     kernelPackages = pkgs.linuxPackages_latest;
     kernelParams = [

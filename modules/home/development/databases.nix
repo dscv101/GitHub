@@ -1,9 +1,9 @@
 {pkgs, ...}: {
-  home.packages = with pkgs; [
+  home.packages = [
     # SQL tooling
-    duckdb
-    sqlite
-    postgresql
-    pgcli
+    pkgs.duckdb
+    pkgs.sqlite
+    pkgs.postgresql
+    pkgs.pgcli
   ];
 }
