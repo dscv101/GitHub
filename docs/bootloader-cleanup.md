@@ -7,7 +7,7 @@ This document describes the bootloader cleanup functionality that extends the Ni
 The bootloader cleanup enhancement provides functionality to:
 
 - **Detect existing bootloaders** (GRUB, systemd-boot, EFI stub) on target devices
-- **Safely remove bootloader installations** from MBR and EFI partitions  
+- **Safely remove bootloader installations** from MBR and EFI partitions
 - **Clean up UEFI NVRAM entries** for removed bootloaders
 - **Provide comprehensive logging** and dry-run capabilities
 - **Handle edge cases** like encrypted partitions, RAID arrays, and LVM configurations
@@ -99,18 +99,18 @@ Integrate with disko configuration for automated cleanup during formatting:
     enable = true;
     device = "/dev/sda";
     targets = [ "grub" "systemd-boot" ];
-    
+
     # Safety settings
     dryRun = false;
     confirmationRequired = true;
     backupBootData = true;
-    
+
     # Logging
     verbose = true;
-    
+
     # NVRAM management
     cleanNvram = true;
-    
+
     # Exclusions
     excludePatterns = [ "Windows*" "Recovery*" "UEFI*" ];
   };

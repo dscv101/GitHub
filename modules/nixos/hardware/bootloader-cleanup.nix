@@ -13,16 +13,15 @@ with lib; let
   # Bootloader detection and cleanup scripts
   bootloaderScripts = pkgs.writeShellScriptBin "bootloader-cleanup" ''
     set -euo pipefail
-
-    # Source utility functions
-    source ${pkgs.writeText "logging-utils.sh" (builtins.readFile ./scripts/logging-utils.sh)}
-    source ${pkgs.writeText "safety-checks.sh" (builtins.readFile ./scripts/safety-checks.sh)}
-    source ${pkgs.writeText "bootloader-detection.sh" (builtins.readFile ./scripts/bootloader-detection.sh)}
-    source ${pkgs.writeText "grub-cleanup.sh" (builtins.readFile ./scripts/grub-cleanup.sh)}
-    source ${pkgs.writeText "systemd-boot-cleanup.sh" (builtins.readFile ./scripts/systemd-boot-cleanup.sh)}
-    source ${pkgs.writeText "efi-stub-cleanup.sh" (builtins.readFile ./scripts/efi-stub-cleanup.sh)}
-    source ${pkgs.writeText "nvram-cleanup.sh" (builtins.readFile ./scripts/nvram-cleanup.sh)}
-
+    
+    # Inline utility functions from scripts
+    ${builtins.readFile ./scripts/logging-utils.sh}
+    ${builtins.readFile ./scripts/safety-checks.sh}
+    ${builtins.readFile ./scripts/bootloader-detection.sh}
+    ${builtins.readFile ./scripts/grub-cleanup.sh}
+    ${builtins.readFile ./scripts/systemd-boot-cleanup.sh}
+    ${builtins.readFile ./scripts/efi-stub-cleanup.sh}
+    ${builtins.readFile ./scripts/nvram-cleanup.sh}
     # Configuration from NixOS options
     ENABLE_CLEANUP="${toString cfg.enable}"
     DRY_RUN="${toString cfg.dryRun}"
