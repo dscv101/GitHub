@@ -7,12 +7,12 @@
     ./databases.nix
   ];
 
-  home.packages = with pkgs; [
+  home.packages = [
     # Development tools
-    uv
-    ruff
-    mypy
-    python3Packages.ipython
-    python3Packages.jupyterlab
+    pkgs.uv
+    pkgs.ruff
+    pkgs.mypy
+    pkgs.python3Packages.ipython
+    pkgs.python3Packages.jupyterlab
   ];
 }

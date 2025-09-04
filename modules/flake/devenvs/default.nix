@@ -15,48 +15,48 @@
       # Disable containers to avoid the current directory issue
       containers = {};
 
-      packages = with pkgs; [
+      packages = [
         # Version control
-        git
-        jujutsu
+        pkgs.git
+        pkgs.jujutsu
 
         # Development environment
-        direnv
-        devenv
+        pkgs.direnv
+        pkgs.devenv
 
         # Nix tooling
-        alejandra
-        statix
-        deadnix
-        nixfmt-rfc-style
-        nix-tree
-        nix-diff
-        nixpkgs-review
-        nurl
+        pkgs.alejandra
+        pkgs.statix
+        pkgs.deadnix
+        pkgs.nixfmt-rfc-style
+        pkgs.nix-tree
+        pkgs.nix-diff
+        pkgs.nixpkgs-review
+        pkgs.nurl
 
         # Shell script tooling
-        shellcheck
-        shfmt
+        pkgs.shellcheck
+        pkgs.shfmt
 
         # Documentation and config linting
-        markdownlint-cli
-        yamllint
-        actionlint
+        pkgs.markdownlint-cli
+        pkgs.yamllint
+        pkgs.actionlint
 
         # Additional formatters and tools
-        keep-sorted
-        taplo
-        stylua
-        treefmt
+        pkgs.keep-sorted
+        pkgs.taplo
+        pkgs.stylua
+        pkgs.treefmt
 
         # Useful development tools
-        just
-        sops
-        age
-        curl
-        wget
-        jq
-        yq
+        pkgs.just
+        pkgs.sops
+        pkgs.age
+        pkgs.curl
+        pkgs.wget
+        pkgs.jq
+        pkgs.yq
       ];
 
       env = {

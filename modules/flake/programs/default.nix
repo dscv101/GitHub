@@ -1,44 +1,44 @@
 _: {
   perSystem = {pkgs, ...}: {
     devShells.default = pkgs.mkShell {
-      buildInputs = with pkgs; [
+      buildInputs = [
         # Version control
-        git
-        jujutsu
+        pkgs.git
+        pkgs.jujutsu
 
         # Development environment
-        direnv
-        devenv
+        pkgs.direnv
+        pkgs.devenv
 
         # Nix tooling
-        alejandra
-        statix
-        deadnix
-        nixfmt-rfc-style
-        nix-tree # Visualize Nix dependencies
-        nix-diff # Compare Nix derivations
-        nixpkgs-review # Review nixpkgs PRs
-        nurl # Generate Nix fetcher expressions
+        pkgs.alejandra
+        pkgs.statix
+        pkgs.deadnix
+        pkgs.nixfmt-rfc-style
+        pkgs.nix-tree # Visualize Nix dependencies
+        pkgs.nix-diff # Compare Nix derivations
+        pkgs.nixpkgs-review # Review nixpkgs PRs
+        pkgs.nurl # Generate Nix fetcher expressions
 
         # Shell script tooling
-        shellcheck # Shell script linter
-        shfmt # Shell script formatter
+        pkgs.shellcheck # Shell script linter
+        pkgs.shfmt # Shell script formatter
 
         # Documentation and config linting
-        markdownlint-cli # Markdown linter
-        yamllint # YAML linter
-        actionlint # GitHub Actions linter
+        pkgs.markdownlint-cli # Markdown linter
+        pkgs.yamllint # YAML linter
+        pkgs.actionlint # GitHub Actions linter
 
         # Additional formatters and tools
-        keep-sorted # Keep imports and lists sorted
-        taplo # TOML formatter
-        stylua # Lua formatter
-        treefmt # Unified formatter
+        pkgs.keep-sorted # Keep imports and lists sorted
+        pkgs.taplo # TOML formatter
+        pkgs.stylua # Lua formatter
+        pkgs.treefmt # Unified formatter
 
         # Additional useful tools
-        just
-        sops
-        age
+        pkgs.just
+        pkgs.sops
+        pkgs.age
       ];
 
       shellHook = ''

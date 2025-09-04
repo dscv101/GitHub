@@ -1,9 +1,9 @@
 {pkgs, ...}: {
   # Development tools and databases
-  environment.systemPackages = with pkgs; [
-    duckdb
-    sqlite
-    postgresql # client only
-    pgcli
+  environment.systemPackages = [
+    pkgs.duckdb
+    pkgs.sqlite
+    pkgs.postgresql # client only
+    pkgs.pgcli
   ];
 }

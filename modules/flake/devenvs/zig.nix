@@ -10,25 +10,25 @@ _: {
         enable = true;
       };
 
-      packages = with pkgs; [
+      packages = [
         # Zig toolchain
-        zig
-        zls # Zig Language Server
+        pkgs.zig
+        pkgs.zls # Zig Language Server
 
         # Development tools
-        gdb
-        lldb
-        valgrind
+        pkgs.gdb
+        pkgs.lldb
+        pkgs.valgrind
 
         # Build tools
-        cmake
-        ninja
+        pkgs.cmake
+        pkgs.ninja
 
         # System dependencies
-        pkg-config
+        pkgs.pkg-config
 
         # Documentation
-        doxygen
+        pkgs.doxygen
       ];
 
       env = {

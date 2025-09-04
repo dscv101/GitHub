@@ -12,28 +12,28 @@ _: {
         components = ["rustc" "cargo" "clippy" "rustfmt" "rust-analyzer"];
       };
 
-      packages = with pkgs; [
+      packages = [
         # Rust toolchain (additional tools)
-        cargo-watch
-        cargo-edit
-        cargo-audit
-        cargo-outdated
-        cargo-tree
-        cargo-expand
-        cargo-bloat
-        cargo-deny
-        cargo-nextest
+        pkgs.cargo-watch
+        pkgs.cargo-edit
+        pkgs.cargo-audit
+        pkgs.cargo-outdated
+        pkgs.cargo-tree
+        pkgs.cargo-expand
+        pkgs.cargo-bloat
+        pkgs.cargo-deny
+        pkgs.cargo-nextest
 
         # Development tools
-        bacon # Background rust code checker
-        sccache # Compilation cache
+        pkgs.bacon # Background rust code checker
+        pkgs.sccache # Compilation cache
 
         # System dependencies commonly needed
-        pkg-config
-        openssl
+        pkgs.pkg-config
+        pkgs.openssl
 
         # Documentation
-        mdbook
+        pkgs.mdbook
       ];
 
       env = {

@@ -1,30 +1,30 @@
 {pkgs, ...}: {
   environment = {
-    systemPackages = with pkgs; [
+    systemPackages = [
       # CLI utilities
-      ripgrep
-      fd
-      eza
-      bat
-      jq
-      sd
-      bottom
-      tree
-      wget
-      curl
-      fzf
+      pkgs.ripgrep
+      pkgs.fd
+      pkgs.eza
+      pkgs.bat
+      pkgs.jq
+      pkgs.sd
+      pkgs.bottom
+      pkgs.tree
+      pkgs.wget
+      pkgs.curl
+      pkgs.fzf
 
       # File/archive tools
-      p7zip
-      unzip
-      unrar
+      pkgs.p7zip
+      pkgs.unzip
+      pkgs.unrar
 
       # Development helpers
-      jujutsu
-      git
-      gh
-      direnv
-      devenv
+      pkgs.jujutsu
+      pkgs.git
+      pkgs.gh
+      pkgs.direnv
+      pkgs.devenv
     ];
   };
 }

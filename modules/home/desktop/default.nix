@@ -9,15 +9,15 @@
     ./portals.nix
   ];
 
-  home.packages = with pkgs; [
+  home.packages = [
     # Wayland desktop helpers
-    waybar
-    swaylock-effects
-    swww
-    swappy
-    grim
-    slurp
-    wl-clipboard
-    cliphist
+    pkgs.waybar
+    pkgs.swaylock-effects
+    pkgs.swww
+    pkgs.swappy
+    pkgs.grim
+    pkgs.slurp
+    pkgs.wl-clipboard
+    pkgs.cliphist
   ];
 }

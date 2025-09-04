@@ -15,30 +15,30 @@ _: {
         };
       };
 
-      packages = with pkgs; [
+      packages = [
         # Python package manager and tools
-        uv
+        pkgs.uv
 
         # Linting and formatting
-        ruff
-        mypy
-        bandit
+        pkgs.ruff
+        pkgs.mypy
+        pkgs.bandit
 
         # Testing and coverage
-        python3Packages.pytest
-        python3Packages.pytest-cov
-        python3Packages.coverage
+        pkgs.python3Packages.pytest
+        pkgs.python3Packages.pytest-cov
+        pkgs.python3Packages.coverage
 
         # Development tools
-        python3Packages.ipython
-        python3Packages.jupyterlab
-        python3Packages.black
-        python3Packages.isort
+        pkgs.python3Packages.ipython
+        pkgs.python3Packages.jupyterlab
+        pkgs.python3Packages.black
+        pkgs.python3Packages.isort
 
         # Additional useful packages
-        python3Packages.pip-tools
-        python3Packages.virtualenv
-        python3Packages.pipx
+        pkgs.python3Packages.pip-tools
+        pkgs.python3Packages.virtualenv
+        pkgs.python3Packages.pipx
       ];
 
       env = {
