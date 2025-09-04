@@ -1,20 +1,23 @@
-# nyx-updated-repo
+# nyx-fmt-fixed
 
-A minimal, stable Nix flake layout (inspired by `dscv101/nyx`) that evaluates cleanly on CI.
-- Uses `flake-parts`
-- Provides a dev shell
-- Exposes `nixosConfigurations.blazar` that **does not** require a real disk (rootfs on tmpfs)
-- Integrates Home Manager without deprecated options
-- Avoids problematic options seen in your logs (`programs.rclone`, duplicate `home.file` targets, oneshot+restart, missing `system.stateVersion`)
+Minimal flake with:
 
-## Quick start
-```bash
-# format
+- **Working `nix fmt`** wrapper that formats/checks the repository root when no file paths are provided.
+- A tiny `nixosConfigurations.blazar` that evaluates cleanly in CI.
+
+## Usage
+
+```sh
+# enter dev shell
+nix develop -c $SHELL
+
+# format the repo (in place)
 nix fmt
 
-# check (builds devshell, evaluates nixosConfigurations)
-nix flake check
-
-# build the NixOS config (evaluation only, because rootfs is tmpfs)
-nix build .#nixosConfigurations.blazar.config.system.build.toplevel
+# check formatting without modifying files (CI-style)
+nix fmt -- --check
 ```
+
+## Notes
+
+- The formatter is a small wrapper around `alejandra`. If you pass paths, those are used; if you pass only flags (like `--check`), it appends `.`.
