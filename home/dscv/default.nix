@@ -112,28 +112,16 @@ in {
         "workbench.colorTheme" = "Catppuccin Mocha";
         "security.workspace.trust.untrustedFiles" = "open";
         "telemetry.telemetryLevel" = "off";
-        "claudeCode.defaultModel" = "sonnet";
-        "claudeCode.inlineCompletions.enabled" = true;
-        "claudeCode.telemetryEnabled" = false;
       };
-      extensions = with pkgs.vscode-extensions;
-        [
-          ms-python.python
-          ms-toolsai.jupyter
-          charliermarsh.ruff
-          ms-vscode.cpptools
-          rust-lang.rust-analyzer
-          ziglang.vscode-zig
-          github.vscode-pull-request-github
-        ]
-        ++ (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
-          {
-            name = "claude-code";
-            publisher = "anthropic";
-            version = "0.0.0";
-            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-          }
-        ]);
+      extensions = with pkgs.vscode-extensions; [
+        ms-python.python
+        ms-toolsai.jupyter
+        charliermarsh.ruff
+        ms-vscode.cpptools
+        rust-lang.rust-analyzer
+        ziglang.vscode-zig
+        github.vscode-pull-request-github
+      ];
     };
   };
 
