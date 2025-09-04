@@ -207,11 +207,11 @@ jj-commit message="":
     @just _jj-check-repo
     #!/usr/bin/env bash
     if [ -z "{{message}}" ]; then
-        echo "💬 Creating commit (editor will open for message)..."
-        jj commit
+    echo "💬 Creating commit (editor will open for message)..."
+    jj commit
     else
-        echo "💬 Creating commit with message: {{message}}"
-        jj commit -m "{{message}}"
+    echo "💬 Creating commit with message: {{message}}"
+    jj commit -m "{{message}}"
     fi
     echo "✅ Commit created successfully!"
 
@@ -229,25 +229,25 @@ jj-branch action="list" name="":
     @just _jj-check-repo
     #!/usr/bin/env bash
     case "{{action}}" in
-        "create")
-            if [ -z "{{name}}" ]; then
-                echo "❌ Error: Branch name required for create action"
-                echo "💡 Usage: just jj-branch create my-branch-name"
-                exit 1
-            fi
-            echo "🌿 Creating branch: {{name}}"
-            jj branch create "{{name}}"
-            echo "✅ Branch '{{name}}' created successfully!"
-            ;;
-        "list"|"")
-            echo "🌿 Listing branches:"
-            jj branch list
-            ;;
-        *)
-            echo "❌ Error: Unknown action '{{action}}'"
-            echo "💡 Usage: just jj-branch [list|create] [name]"
-            exit 1
-            ;;
+    "create")
+    if [ -z "{{name}}" ]; then
+    echo "❌ Error: Branch name required for create action"
+    echo "💡 Usage: just jj-branch create my-branch-name"
+    exit 1
+    fi
+    echo "🌿 Creating branch: {{name}}"
+    jj branch create "{{name}}"
+    echo "✅ Branch '{{name}}' created successfully!"
+    ;;
+    "list"|"")
+    echo "🌿 Listing branches:"
+    jj branch list
+    ;;
+    *)
+    echo "❌ Error: Unknown action '{{action}}'"
+    echo "💡 Usage: just jj-branch [list|create] [name]"
+    exit 1
+    ;;
     esac
 
 # Show working copy status (enhanced version of original)
@@ -270,11 +270,11 @@ jj-diff revision="":
     @just _jj-check-repo
     #!/usr/bin/env bash
     if [ -z "{{revision}}" ]; then
-        echo "🔍 Showing working copy differences:"
-        jj diff
+    echo "🔍 Showing working copy differences:"
+    jj diff
     else
-        echo "🔍 Showing differences for: {{revision}}"
-        jj diff -r "{{revision}}"
+    echo "🔍 Showing differences for: {{revision}}"
+    jj diff -r "{{revision}}"
     fi
 
 # Push to remote repository with validation
@@ -283,11 +283,11 @@ jj-push remote="origin" branch="":
     @just _jj-check-repo
     #!/usr/bin/env bash
     if [ -z "{{branch}}" ]; then
-        echo "🚀 Pushing to {{remote}}..."
-        jj git push --remote "{{remote}}"
+    echo "🚀 Pushing to {{remote}}..."
+    jj git push --remote "{{remote}}"
     else
-        echo "🚀 Pushing branch '{{branch}}' to {{remote}}..."
-        jj git push --remote "{{remote}}" --branch "{{branch}}"
+    echo "🚀 Pushing branch '{{branch}}' to {{remote}}..."
+    jj git push --remote "{{remote}}" --branch "{{branch}}"
     fi
     echo "✅ Push completed successfully!"
 
