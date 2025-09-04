@@ -15,6 +15,9 @@
       # Disable containers to avoid the current directory issue
       containers = {};
 
+      # Fix devenv directory detection for flakes
+      devenv.root = ./.;
+
       packages = [
         # Version control
         pkgs.git
@@ -60,7 +63,7 @@
       ];
 
       env = {
-        DEVENV_ROOT = "$PWD";
+        # Remove DEVENV_ROOT as it's handled by devenv.root
       };
 
       enterShell = ''
