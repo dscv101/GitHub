@@ -137,6 +137,33 @@ just jj-pull [remote]           # Pull from remote
 
 📖 **Full documentation**: [docs/jujutsu_integration.md](docs/jujutsu_integration.md)
 
+### Claude Code Integration
+
+This repository includes comprehensive Claude Code integration for AI-assisted development:
+
+```bash
+# Quick setup - copy global config template
+cp templates/claude-global-config.md ~/.claude/CLAUDE.md
+
+# Enable in your devenv.nix
+echo '{ claude.code.enable = true; }' >> devenv.nix
+
+# Use templates for advanced features
+cp templates/devenv/claude/with-hooks.nix devenv.nix    # Git hooks + formatting
+cp templates/devenv/claude/commands.nix devenv.nix     # Custom /commands
+cp templates/devenv/claude/agents.nix devenv.nix       # Specialized agents
+```
+
+**Features:**
+- 🤖 **Automatic devenv shell integration** - Claude executes all commands in proper environment
+- 🔒 **Security hooks** - Protects sensitive files (*.env, *.secret, *.key, etc.)
+- 🧪 **Automated testing** - Runs tests after Claude makes changes
+- 🎨 **Auto-formatting** - Runs nixfmt, black, prettier, rustfmt after edits
+- ⚡ **Custom commands** - /test, /build, /deploy, /db-migrate slash commands
+- 👥 **Specialized agents** - code-reviewer, test-writer, docs-updater, security-auditor
+
+📖 **Full documentation**: [docs/devenv/claude-code.md](docs/devenv/claude-code.md)
+
 ## Migration from Old Structure
 
 This configuration was refactored from a monolithic structure to a modular one:
