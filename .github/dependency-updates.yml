@@ -1,0 +1,122 @@
+# .github/dependency-updates.yml
+
+# Configuration for automated dependency updates
+
+# Update schedule and behavior
+
+schedule:
+
+# When to run automatic updates
+
+frequency: weekly  # daily, weekly, monthly
+day: sunday       # monday, tuesday, etc. (for weekly)
+time: “02:00”     # UTC time
+
+# Update strategy
+
+strategy:
+
+# What to update by default
+
+default_update_type: all  # all, nixpkgs-only, security-only
+
+# Inputs to always exclude from updates
+
+exclude_inputs: []
+# - “some-unstable-input”
+# - “local-override”
+
+# Inputs that require special handling
+
+critical_inputs:
+- nixpkgs
+- home-manager
+
+# Security-focused updates (when security-only is selected)
+
+security_inputs:
+- nixpkgs
+- home-manager
+- nixos-hardware
+
+# Testing and validation
+
+testing:
+
+# Required tests before creating PR
+
+required_tests:
+- flake_check
+- build_test
+- security_scan
+
+# Fail PR creation if critical vulnerabilities found
+
+fail_on_critical_vulns: true
+
+# Maximum acceptable vulnerability count
+
+max_vulnerabilities: 10
+
+# Create draft PR if tests fail
+
+draft_on_failure: true
+
+# Pull request settings
+
+pull_request:
+
+# Auto-create PRs (set to false for manual review)
+
+auto_create: true
+
+# Auto-assign reviewers
+
+reviewers: []
+# - “@username”
+
+# Labels to apply
+
+labels:
+- dependencies
+- automated
+
+# Branch naming pattern
+
+branch_prefix: “automated-deps-update”
+
+# PR title template
+
+title_template: “🔄 Automated Dependency Update ({update_type})”
+
+# Notification settings
+
+notifications:
+
+# Create GitHub issues on failure
+
+create_failure_issues: true
+
+# Notify on security updates
+
+notify_security_updates: true
+
+# Slack webhook for notifications (set in secrets)
+
+slack_webhook_secret: “SLACK_WEBHOOK_URL”
+
+# Advanced settings
+
+advanced:
+
+# Timeout for the entire workflow (minutes)
+
+workflow_timeout: 45
+
+# Keep artifacts for this many days
+
+artifact_retention: 30
+
+# Maximum number of concurrent update PRs
+
+max_concurrent_prs: 1
