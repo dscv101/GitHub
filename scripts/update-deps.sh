@@ -61,7 +61,6 @@ echo
 check_security() {
 log_info "Checking for recent security advisories…"
 
-```
 if command -v curl >/dev/null; then
     local recent_count
     recent_count=$(curl -s "https://discourse.nixos.org/c/announcements/security/67.json" | 
@@ -77,7 +76,6 @@ else
     log_warning "curl not available - skipping security check"
 fi
 echo
-```
 
 }
 
@@ -86,7 +84,6 @@ echo
 test_config() {
 local test_failed=false
 
-```
 log_info "Testing flake configuration..."
 
 # Test flake check
@@ -111,7 +108,6 @@ if [ "$test_failed" = true ]; then
 fi
 
 return 0
-```
 
 }
 
@@ -120,7 +116,6 @@ return 0
 security_scan() {
 log_info "Running security vulnerability scan…"
 
-```
 if ! command -v nix >/dev/null; then
     log_error "Nix not found in PATH"
     return 1
@@ -157,7 +152,6 @@ fi
 
 rm -f "$scan_output"
 echo
-```
 
 }
 
@@ -166,7 +160,6 @@ echo
 restore_backup() {
 local backup_file="$1"
 
-```
 if [ ! -f "$backup_file" ]; then
     log_error "Backup file not found: $backup_file"
     return 1
@@ -174,7 +167,6 @@ fi
 
 cp "$backup_file" flake.lock
 log_success "Restored from backup: $backup_file"
-```
 
 }
 
@@ -200,7 +192,6 @@ update_security() {
 log_info "Updating security-critical inputs…"
 local security_inputs=("nixpkgs" "home-manager" "nixos-hardware")
 
-```
 for input in "${security_inputs[@]}"; do
     if nix flake metadata --json | jq -e ".locks.nodes[\"$input\"]" >/dev/null 2>&1; then
         log_info "Updating $input..."
@@ -209,7 +200,6 @@ for input in "${security_inputs[@]}"; do
         log_warning "Input $input not found in flake"
     fi
 done
-```
 
 }
 
@@ -257,7 +247,6 @@ local command="${1:-}"
 local no_test=false
 local no_backup=false
 
-```
 # Parse options
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -399,7 +388,6 @@ case "$command" in
         exit 1
         ;;
 esac
-```
 
 }
 
