@@ -162,7 +162,7 @@ jobs:
             -e "s|{{RESULT_CODE_QUALITY}}|${{ needs.code-quality.result }}|g" \
             -e "s|{{RESULT_DEP_UPDATE}}|${{ needs.test-dependency-updates.result }}|g" \
             -e "s|{{ERROR_LOGS}}|See run details in Actions UI.|g" \
-            .github/ISSUE_TEMPLATES/ci-failure.md > out/ci-failure-filled.md
+            .github/ISSUE_TEMPLATE/ci-failure.md > out/ci-failure-filled.md
           echo "path=out/ci-failure-filled.md" >> "$GITHUB_OUTPUT"
           echo "title=CI failed: ${{ github.workflow }} on ${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
