@@ -139,3 +139,66 @@ jobs:
         run: |
           nix build .#nixosConfigurations.blazar.config.system.build.toplevel
           # nix build .#checks.x86_64-linux.integration-tests || true
+
+  # --- New: open/update an issue when the workflow fails ---
+  report-ci-failure:
+    runs-on: ubuntu-latest
+    needs: [ flake-check, code-quality, test-dependency-updates ]
+    if: ${{ failure() }}   # only run if any dependency failed
+    steps:
+      - name: Create CI failure report (Markdown)
+        id: mk
+        run: |
+          cat > ci-failure.md <<'MD'
+          <!-- [CI Failure Report] -->
+          # ⚠️ CI Failure Report
+
+          **Workflow:** ${{ github.workflow }}
+          **Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          **Ref:** `${{ github.ref }}`
+
+          ## Job Results
+          - flake-check: `${{ needs.flake-check.result }}`
+          - code-quality: `${{ needs.code-quality.result }}`
+          - test-dependency-updates: `${{ needs.test-dependency-updates.result }}`
+
+          _This issue is opened/updated automatically._
+          MD
+          echo "path=ci-failure.md" >> "$GITHUB_OUTPUT"
+          echo "title=CI failed: ${{ github.workflow }} on ${GITHUB_REF_NAME }}" >> "$GITHUB_OUTPUT"
+
+      - name: Find existing CI failure issue (by title)
+        id: find
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const title = `CI failed: ${context.workflow} on ${process.env.GITHUB_REF_NAME}`;
+            const { data } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue is:open in:title "${title}"`
+            });
+            core.setOutput('issue-number', (data.items[0]?.number || ''));
+            core.setOutput('title', title);
+
+      - name: Create or update Issue from file
+        id: issue
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: ${{ steps.find.outputs.title }}
+          content-filepath: ${{ steps.mk.outputs.path }}
+          labels: ci, automated
+          issue-number: ${{ steps.find.outputs.issue-number }}
+
+      - name: Create or update status comment on the issue
+        # Tag the comment so we can overwrite it on the next failure
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ steps.issue.outputs.issue-number }}
+          body: |
+            <!-- ci-failure-comment -->
+            ✅ Issue updated for failed run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - flake-check: `${{ needs.flake-check.result }}`
+            - code-quality: `${{ needs.code-quality.result }}`
+            - test-dependency-updates: `${{ needs.test-dependency-updates.result }}`
+          edit-mode: replace
+          comment-tag: ci-failure-comment
