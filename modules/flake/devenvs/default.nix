@@ -1,8 +1,4 @@
-{
-  inputs,
-  self,
-  ...
-}: {
+{inputs, ...}: {
   imports = [
     inputs.devenv.flakeModule
     ./python.nix
@@ -10,6 +6,9 @@
     ./zig.nix
     ./julia.nix
   ];
+
+  # Set devenv root for flakes - use flake root
+  devenv.root = ./.;
 
   perSystem = {pkgs, ...}: {
     # Base development shell with common tools
