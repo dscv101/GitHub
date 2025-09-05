@@ -110,10 +110,12 @@ jobs:
           fi
 
       - name: Lint YAML files
-        run: nix develop --command yamllint . || echo "Warning: yamllint failed"
+        run: |
+          nix develop --command yamllint . || echo "Warning: yamllint failed"
 
       - name: Lint GitHub Actions
-        run: nix develop --command actionlint || echo "Warning: actionlint failed"
+        run: |
+          nix develop --command actionlint || echo "Warning: actionlint failed"
 
   test-dependency-updates:
     runs-on: ubuntu-latest
