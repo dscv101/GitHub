@@ -155,8 +155,9 @@ cp templates/devenv/claude/agents.nix devenv.nix       # Specialized agents
 ```
 
 **Features:**
+
 - 🤖 **Automatic devenv shell integration** - Claude executes all commands in proper environment
-- 🔒 **Security hooks** - Protects sensitive files (*.env, *.secret, *.key, etc.)
+- 🔒 **Security hooks** - Protects sensitive files (`*.env`, `*.secret`, `*.key`, etc.)
 - 🧪 **Automated testing** - Runs tests after Claude makes changes
 - 🎨 **Auto-formatting** - Runs nixfmt, black, prettier, rustfmt after edits
 - ⚡ **Custom commands** - /test, /build, /deploy, /db-migrate slash commands
