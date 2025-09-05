@@ -59,8 +59,8 @@ jobs:
           cp flake.lock flake.lock.backup
           
           # Get current commit info
-          echo "current_commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-          echo "current_branch=$(git branch --show-current)" >> $GITHUB_OUTPUT
+          echo "current_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "current_branch=$(git branch --show-current)" >> "$GITHUB_OUTPUT"
           
           # Generate current input summary
           nix flake metadata --json > current-metadata.json
@@ -91,7 +91,7 @@ jobs:
                 map(select(.created_at > $date)) | length
               ' recent-security.json)
               
-              echo "recent_security_count=$recent_security" >> $GITHUB_OUTPUT
+              echo "recent_security_count=$recent_security" >> "$GITHUB_OUTPUT"
               
               if [ "$recent_security" -gt 0 ]; then
                 echo "🚨 Found $recent_security recent security announcements"
@@ -101,12 +101,12 @@ jobs:
               fi
             else
               echo "⚠️ Invalid response format from Discourse API"
-              echo "recent_security_count=0" >> $GITHUB_OUTPUT
+              echo "recent_security_count=0" >> "$GITHUB_OUTPUT"
               echo "[]" > recent-security.json
             fi
           else
             echo "❌ Failed to fetch security announcements from Discourse"
-            echo "recent_security_count=0" >> $GITHUB_OUTPUT
+            echo "recent_security_count=0" >> "$GITHUB_OUTPUT"
             echo "[]" > recent-security.json
           fi
 
@@ -134,10 +134,10 @@ jobs:
           
           # Check if flake.lock actually changed
           if diff -q flake.lock flake.lock.backup > /dev/null; then
-            echo "changes_detected=false" >> $GITHUB_OUTPUT
+            echo "changes_detected=false" >> "$GITHUB_OUTPUT"
             echo "No changes detected in flake.lock"
           else
-            echo "changes_detected=true" >> $GITHUB_OUTPUT
+            echo "changes_detected=true" >> "$GITHUB_OUTPUT"
             echo "Changes detected in flake.lock"
           fi
 
@@ -181,9 +181,11 @@ jobs:
           done < current-inputs.txt
           
           # Check for new inputs
-          echo "" >> update-summary.md
-          echo "### New Inputs" >> update-summary.md
-          echo "" >> update-summary.md
+          {
+            echo ""
+            echo "### New Inputs"
+            echo ""
+          } >> update-summary.md
           
           while IFS= read -r line; do
             input_name=$(echo "$line" | cut -d: -f1)
@@ -193,22 +195,27 @@ jobs:
           done < new-inputs.txt
           
           # Add security context if relevant
-          if [ "${{ steps.security_check.outputs.recent_security_count }}" -gt 0 ]; then
-            echo "" >> update-summary.md
-            echo "## 🔒 Security Context" >> update-summary.md
-            echo "" >> update-summary.md
-            echo "Recent security announcements detected (${{ steps.security_check.outputs.recent_security_count }} in last 7 days):" >> update-summary.md
-            echo "" >> update-summary.md
+          security_count="${{ steps.security_check.outputs.recent_security_count }}"
+          if [ "$security_count" -gt 0 ]; then
+            {
+              echo ""
+              echo "## 🔒 Security Context"
+              echo ""
+              echo "Recent security announcements detected (${{ steps.security_check.outputs.recent_security_count }} in last 7 days):"
+              echo ""
+            } >> update-summary.md
             jq -r '.[] | "- [\(.title)](https://discourse.nixos.org/t/\(.slug)/\(.id))"' recent-security.json | head -5 >> update-summary.md
           fi
           
-          echo "" >> update-summary.md
-          echo "## Testing Required" >> update-summary.md
-          echo "" >> update-summary.md
-          echo "- [ ] Build test passes" >> update-summary.md
-          echo "- [ ] Flake check passes" >> update-summary.md
-          echo "- [ ] Security scan passes" >> update-summary.md
-          echo "- [ ] Manual testing completed" >> update-summary.md
+          {
+            echo ""
+            echo "## Testing Required"
+            echo ""
+            echo "- [ ] Build test passes"
+            echo "- [ ] Flake check passes"
+            echo "- [ ] Security scan passes"
+            echo "- [ ] Manual testing completed"
+          } >> update-summary.md
 
       - name: Test updated configuration
         if: steps.update_inputs.outputs.changes_detected == 'true'
@@ -216,29 +223,34 @@ jobs:
         run: |
           echo "Testing updated configuration..."
           
+          flake_check_result="failed"
+          build_test_result="failed"
+          
           # Test flake check
           if nix flake check --show-trace; then
             echo "✅ Flake check passed"
-            echo "flake_check=success" >> $GITHUB_OUTPUT
+            flake_check_result="success"
+            echo "flake_check=success" >> "$GITHUB_OUTPUT"
           else
             echo "❌ Flake check failed"
-            echo "flake_check=failed" >> $GITHUB_OUTPUT
+            echo "flake_check=failed" >> "$GITHUB_OUTPUT"
           fi
           
           # Test build
           if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace; then
             echo "✅ Build test passed"
-            echo "build_test=success" >> $GITHUB_OUTPUT
+            build_test_result="success"
+            echo "build_test=success" >> "$GITHUB_OUTPUT"
           else
             echo "❌ Build test failed"
-            echo "build_test=failed" >> $GITHUB_OUTPUT
+            echo "build_test=failed" >> "$GITHUB_OUTPUT"
           fi
           
           # Overall result
-          if [ "${{ steps.test_build.outputs.flake_check }}" = "success" ] && [ "${{ steps.test_build.outputs.build_test }}" = "success" ]; then
-            echo "test_result=success" >> $GITHUB_OUTPUT
+          if [ "$flake_check_result" = "success" ] && [ "$build_test_result" = "success" ]; then
+            echo "test_result=success" >> "$GITHUB_OUTPUT"
           else
-            echo "test_result=failed" >> $GITHUB_OUTPUT
+            echo "test_result=failed" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run security scan on updated system
@@ -257,8 +269,8 @@ jobs:
             vuln_count=$(jq 'length' security-reports/vulns-after-update.json 2>/dev/null || echo "0")
             critical_count=$(jq '[.[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' security-reports/vulns-after-update.json 2>/dev/null || echo "0")
             
-            echo "vulnerabilities=$vuln_count" >> $GITHUB_OUTPUT
-            echo "critical_vulnerabilities=$critical_count" >> $GITHUB_OUTPUT
+            echo "vulnerabilities=$vuln_count" >> "$GITHUB_OUTPUT"
+            echo "critical_vulnerabilities=$critical_count" >> "$GITHUB_OUTPUT"
             
             # Add security results to summary
             cat >> update-summary.md << EOF
@@ -278,8 +290,8 @@ jobs:
           EOF
           else
             echo "Security scan failed, but continuing..."
-            echo "vulnerabilities=unknown" >> $GITHUB_OUTPUT
-            echo "critical_vulnerabilities=unknown" >> $GITHUB_OUTPUT
+            echo "vulnerabilities=unknown" >> "$GITHUB_OUTPUT"
+            echo "critical_vulnerabilities=unknown" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create pull request
