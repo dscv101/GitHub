@@ -19,9 +19,6 @@
       # Disable containers to avoid the current directory issue
       containers = {};
 
-      # Set devenv root for flakes - use self.outPath
-      devenv.root = self.outPath;
-
       packages = [
         # Version control
         pkgs.git
