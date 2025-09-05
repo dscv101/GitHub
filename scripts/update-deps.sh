@@ -8,58 +8,58 @@ set -euo pipefail
 
 # Colors for output
 
-RED=’\033[0;31m’
-GREEN=’\033[0;32m’
-YELLOW=’\033[1;33m’
-BLUE=’\033[0;34m’
-NC=’\033[0m’ # No Color
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 # Configuration
 
-BACKUP_DIR=”./flake-backups”
-CONFIG_NAME=“blazar”  # Change this to match your NixOS configuration name
+BACKUP_DIR="./flake-backups"
+CONFIG_NAME="blazar"  # Change this to match your NixOS configuration name
 
 # Helper functions
 
 log_info() {
-echo -e “${BLUE}[INFO]${NC} $1”
+echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 log_success() {
-echo -e “${GREEN}[SUCCESS]${NC} $1”
+echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
 log_warning() {
-echo -e “${YELLOW}[WARNING]${NC} $1”
+echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 log_error() {
-echo -e “${RED}[ERROR]${NC} $1”
+echo -e "${RED}[ERROR]${NC} $1"
 }
 
 # Create backup
 
 create_backup() {
-local backup_name=“flake.lock.$(date +%Y%m%d_%H%M%S)”
-mkdir -p “$BACKUP_DIR”
-cp flake.lock “$BACKUP_DIR/$backup_name”
-log_info “Created backup: $BACKUP_DIR/$backup_name”
-echo “$BACKUP_DIR/$backup_name”
+local backup_name="flake.lock.$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+cp flake.lock "$BACKUP_DIR/$backup_name"
+log_info "Created backup: $BACKUP_DIR/$backup_name"
+echo "$BACKUP_DIR/$backup_name"
 }
 
 # Show current flake status
 
 show_status() {
-log_info “Current flake status:”
+log_info "Current flake status:"
 echo
-nix flake metadata –json | jq -r ‘.locks.nodes | to_entries[] | select(.value.original) | “  (.key): (.value.locked.rev // .value.locked.narHash // “unknown”)[0:8] ((.value.locked.lastModified // 0 | strftime(”%Y-%m-%d”)))”’
+nix flake metadata --json | jq -r '.locks.nodes | to_entries[] | select(.value.original) | "  (.key): (.value.locked.rev // .value.locked.narHash // "unknown")[0:8] ((.value.locked.lastModified // 0 | strftime("%Y-%m-%d")))"'
 echo
 }
 
 # Check for security advisories
 
 check_security() {
-log_info “Checking for recent security advisories…”
+log_info "Checking for recent security advisories…"
 
 ```
 if command -v curl >/dev/null; then
@@ -118,7 +118,7 @@ return 0
 # Run security scan
 
 security_scan() {
-log_info “Running security vulnerability scan…”
+log_info "Running security vulnerability scan…"
 
 ```
 if ! command -v nix >/dev/null; then
@@ -164,7 +164,7 @@ echo
 # Restore from backup
 
 restore_backup() {
-local backup_file=”$1”
+local backup_file="$1"
 
 ```
 if [ ! -f "$backup_file" ]; then
@@ -181,24 +181,24 @@ log_success "Restored from backup: $backup_file"
 # Update functions
 
 update_all() {
-log_info “Updating all flake inputs…”
+log_info "Updating all flake inputs…"
 nix flake update
 }
 
 update_nixpkgs() {
-log_info “Updating nixpkgs only…”
-nix flake lock –update-input nixpkgs
+log_info "Updating nixpkgs only…"
+nix flake lock --update-input nixpkgs
 }
 
 update_specific() {
-local input=”$1”
-log_info “Updating input: $input”
-nix flake lock –update-input “$input”
+local input="$1"
+log_info "Updating input: $input"
+nix flake lock --update-input "$input"
 }
 
 update_security() {
-log_info “Updating security-critical inputs…”
-local security_inputs=(“nixpkgs” “home-manager” “nixos-hardware”)
+log_info "Updating security-critical inputs…"
+local security_inputs=("nixpkgs" "home-manager" "nixos-hardware")
 
 ```
 for input in "${security_inputs[@]}"; do
@@ -236,14 +236,14 @@ restore BACKUP     Restore from backup file
 list-backups       List available backups
 
 Options:
-–no-test          Skip testing after update
-–no-backup        Skip creating backup before update
-–config NAME      Override NixOS configuration name (default: $CONFIG_NAME)
+--no-test          Skip testing after update
+--no-backup        Skip creating backup before update
+--config NAME      Override NixOS configuration name (default: $CONFIG_NAME)
 
 Examples:
 $0 status                           # Show current status
 $0 update-all                       # Update everything with full testing
-$0 update-nixpkgs –no-test         # Quick nixpkgs update without testing
+$0 update-nixpkgs --no-test         # Quick nixpkgs update without testing
 $0 update-input home-manager        # Update specific input
 $0 security-scan                    # Check for vulnerabilities
 $0 restore ./flake-backups/flake.lock.20241201_120000
@@ -253,7 +253,7 @@ EOF
 # Main script logic
 
 main() {
-local command=”${1:-}”
+local command="${1:-}"
 local no_test=false
 local no_backup=false
 
@@ -405,4 +405,4 @@ esac
 
 # Run main function
 
-main “$@”
+main "$@"
