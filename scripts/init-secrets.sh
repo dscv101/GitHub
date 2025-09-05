@@ -6,10 +6,10 @@ KEY_DIR="var/lib/sops-nix/keys/age"
 KEY_PATH="$KEY_DIR/keys.txt"
 
 if [ ! -f "$KEY_PATH" ]; then
-  echo "Generating Age key at /$KEY_PATH ..."
-  sudo mkdir -p "/$KEY_DIR"
-  age-keygen | sudo tee "/$KEY_PATH" >/dev/null
-  sudo chmod 600 "/$KEY_PATH"
+	echo "Generating Age key at /$KEY_PATH ..."
+	sudo mkdir -p "/$KEY_DIR"
+	age-keygen | sudo tee "/$KEY_PATH" >/dev/null
+	sudo chmod 600 "/$KEY_PATH"
 fi
 
 echo "Age key:"
@@ -17,9 +17,9 @@ sudo cat "/$KEY_PATH" | sed -n 's/^# public key: //p'
 
 # Create placeholder sops file if missing
 if [ ! -f secrets/sops/secrets.sops.yaml ]; then
-  echo "Creating secrets/sops/secrets.sops.yaml (unencrypted placeholder)"
-  mkdir -p secrets/sops
-  cat >secrets/sops/secrets.sops.yaml <<'EOF'
+	echo "Creating secrets/sops/secrets.sops.yaml (unencrypted placeholder)"
+	mkdir -p secrets/sops
+	cat >secrets/sops/secrets.sops.yaml <<'EOF'
 sops: PLACEHOLDER
 RESTIC_PASSWORD: "changeme"
 B2_ACCOUNT_ID: "xxx"
