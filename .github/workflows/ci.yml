@@ -1,149 +1,155 @@
----
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+push:
+branches: [main]
+pull_request:
 
 permissions:
-  contents: read
-  issues: write
-  pull-requests: write
+contents: read
+issues: write
+pull-requests: write
 
 # Cancel previous runs if a new commit is pushed
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+group: ${{ github.workflow }}-${{ github.ref }}
+cancel-in-progress: true
 
 jobs:
-  flake-check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+flake-check:
+runs-on: ubuntu-latest
+timeout-minutes: 30
+steps:
+- name: Checkout repository
+uses: actions/checkout@v5
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.31.0/install
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            substituters = https://cache.nixos.org/ https://nix-community.cachix.org
-            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+```
+  - name: Install Nix
+    uses: cachix/install-nix-action@v31
+    with:
+      install_url: https://releases.nixos.org/nix/nix-2.31.0/install
+      extra_nix_config: |
+        experimental-features = nix-command flakes
+        substituters = https://cache.nixos.org/ https://nix-community.cachix.org
+        trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
 
-      - name: Check flake
-        run: |
-          echo "Running flake check with detailed output..."
-          nix flake check --show-trace --verbose || {
-            echo "Flake check failed, attempting to show more details..."
-            nix flake show || echo "Could not show flake outputs"
-            exit 1
-          }
+  - name: Check flake
+    run: |
+      echo "Running flake check with detailed output..."
+      nix flake check --show-trace --verbose || {
+        echo "Flake check failed, attempting to show more details..."
+        nix flake show || echo "Could not show flake outputs"
+        exit 1
+      }
 
-      - name: Build NixOS configuration
-        run: |
-          echo "Building NixOS configuration..."
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --verbose || {
-            echo "Build failed, checking if configuration exists..."
-            nix flake show | grep -A 10 nixosConfigurations || echo "No nixosConfigurations found"
-            exit 1
-          }
+  - name: Build NixOS configuration
+    run: |
+      echo "Building NixOS configuration..."
+      nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --verbose || {
+        echo "Build failed, checking if configuration exists..."
+        nix flake show | grep -A 10 nixosConfigurations || echo "No nixosConfigurations found"
+        exit 1
+      }
+```
 
-  code-quality:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+code-quality:
+runs-on: ubuntu-latest
+timeout-minutes: 15
+steps:
+- name: Checkout repository
+uses: actions/checkout@v5
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.31.0/install
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            substituters = https://cache.nixos.org/ https://nix-community.cachix.org
-            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+```
+  - name: Install Nix
+    uses: cachix/install-nix-action@v31
+    with:
+      install_url: https://releases.nixos.org/nix/nix-2.31.0/install
+      extra_nix_config: |
+        experimental-features = nix-command flakes
+        substituters = https://cache.nixos.org/ https://nix-community.cachix.org
+        trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
 
-      - name: Check code formatting (treefmt)
-        run: |
-          echo "Checking treefmt availability..."
-          nix build .#checks.x86_64-linux.treefmt || {
-            echo "treefmt check not available, skipping..."
-            exit 0
-          }
+  - name: Check code formatting (treefmt)
+    run: |
+      echo "Checking treefmt availability..."
+      nix build .#checks.x86_64-linux.treefmt || {
+        echo "treefmt check not available, skipping..."
+        exit 0
+      }
 
-      - name: Check code formatting (alejandra fallback)
-        run: |
-          echo "Running alejandra format check..."
-          nix develop --command alejandra --check . || {
-            echo "Alejandra check failed, showing diff..."
-            nix develop --command alejandra --check . 2>&1 || true
-            exit 1
-          }
+  - name: Check code formatting (alejandra fallback)
+    run: |
+      echo "Running alejandra format check..."
+      nix develop --command alejandra --check . || {
+        echo "Alejandra check failed, showing diff..."
+        nix develop --command alejandra --check . 2>&1 || true
+        exit 1
+      }
 
-      - name: Check for dead code
-        run: nix develop --command deadnix --fail --exclude flake.nix .
+  - name: Check for dead code
+    run: nix develop --command deadnix --fail --exclude flake.nix .
 
-      - name: Run static analysis
-        run: nix develop --command statix check .
+  - name: Run static analysis
+    run: nix develop --command statix check .
 
-      - name: Check shell scripts
-        run: |
-          if [ -d "scripts" ] && [ -n "$(find scripts -name '*.sh' 2>/dev/null)" ]; then
-            nix develop --command shellcheck scripts/*.sh || echo "Warning: shellcheck failed for scripts"
-          fi
-          if [ -d "modules/nixos/hardware/scripts" ] && [ -n "$(find modules/nixos/hardware/scripts -name '*.sh' 2>/dev/null)" ]; then
-            nix develop --command shellcheck modules/nixos/hardware/scripts/*.sh || echo "Warning: shellcheck failed for hardware scripts"
-          fi
+  - name: Check shell scripts
+    run: |
+      if [ -d "scripts" ] && [ -n "$(find scripts -name '*.sh' 2>/dev/null)" ]; then
+        nix develop --command shellcheck scripts/*.sh || echo "Warning: shellcheck failed for scripts"
+      fi
+      if [ -d "modules/nixos/hardware/scripts" ] && [ -n "$(find modules/nixos/hardware/scripts -name '*.sh' 2>/dev/null)" ]; then
+        nix develop --command shellcheck modules/nixos/hardware/scripts/*.sh || echo "Warning: shellcheck failed for hardware scripts"
+      fi
 
-      - name: Check shell script formatting
-        run: |
-          if [ -d "scripts" ] && [ -n "$(find scripts -name '*.sh' 2>/dev/null)" ]; then
-            nix develop --command shfmt -d scripts/*.sh || echo "Warning: shfmt failed for scripts"
-          fi
-          if [ -d "modules/nixos/hardware/scripts" ] && [ -n "$(find modules/nixos/hardware/scripts -name '*.sh' 2>/dev/null)" ]; then
-            nix develop --command shfmt -d modules/nixos/hardware/scripts/*.sh || echo "Warning: shfmt failed for hardware scripts"
-          fi
+  - name: Check shell script formatting
+    run: |
+      if [ -d "scripts" ] && [ -n "$(find scripts -name '*.sh' 2>/dev/null)" ]; then
+        nix develop --command shfmt -d scripts/*.sh || echo "Warning: shfmt failed for scripts"
+      fi
+      if [ -d "modules/nixos/hardware/scripts" ] && [ -n "$(find modules/nixos/hardware/scripts -name '*.sh' 2>/dev/null)" ]; then
+        nix develop --command shfmt -d modules/nixos/hardware/scripts/*.sh || echo "Warning: shfmt failed for hardware scripts"
+      fi
 
-      - name: Lint Markdown files
-        run: |
-          if [ -n "$(find . -maxdepth 1 -name '*.md' 2>/dev/null)" ]; then
-            nix develop --command markdownlint ./*.md || echo "Warning: markdownlint failed"
-          else
-            echo "No Markdown files found to lint"
-          fi
+  - name: Lint Markdown files
+    run: |
+      if [ -n "$(find . -maxdepth 1 -name '*.md' 2>/dev/null)" ]; then
+        nix develop --command markdownlint ./*.md || echo "Warning: markdownlint failed"
+      else
+        echo "No Markdown files found to lint"
+      fi
 
-      - name: Lint YAML files
-        run: nix develop --command yamllint . || echo "Warning: yamllint failed"
+  - name: Lint YAML files
+    run: nix develop --command yamllint . || echo "Warning: yamllint failed"
 
-      - name: Lint GitHub Actions
-        run: nix develop --command actionlint || echo "Warning: actionlint failed"
+  - name: Lint GitHub Actions
+    run: nix develop --command actionlint || echo "Warning: actionlint failed"
+```
 
-  test-dependency-updates:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: github.event_name == 'pull_request' && contains(github.head_ref, 'automated-deps-update')
-    needs: [flake-check, code-quality]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+test-dependency-updates:
+runs-on: ubuntu-latest
+timeout-minutes: 20
+if: github.event_name == ‘pull_request’ && contains(github.head_ref, ‘automated-deps-update’)
+needs: [flake-check, code-quality]
+steps:
+- name: Checkout repository
+uses: actions/checkout@v5
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.31.0/install
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            substituters = https://cache.nixos.org/ https://nix-community.cachix.org
-            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+```
+  - name: Install Nix
+    uses: cachix/install-nix-action@v31
+    with:
+      install_url: https://releases.nixos.org/nix/nix-2.31.0/install
+      extra_nix_config: |
+        experimental-features = nix-command flakes
+        substituters = https://cache.nixos.org/ https://nix-community.cachix.org
+        trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
 
-      - name: Extended testing for dependency updates
-        run: |
-          # Test that the system actually builds
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
-          
-          # Optional: Run additional tests specific to dependency updates
-          # nix build .#checks.x86_64-linux.integration-tests || true
+  - name: Extended testing for dependency updates
+    run: |
+      # Test that the system actually builds
+      nix build .#nixosConfigurations.blazar.config.system.build.toplevel
+      
+      # Optional: Run additional tests specific to dependency updates
+      # nix build .#checks.x86_64-linux.integration-tests || true
+```
