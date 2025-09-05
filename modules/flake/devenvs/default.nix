@@ -7,8 +7,8 @@
     ./julia.nix
   ];
 
-  # Set devenv root for flakes - use current directory
-  devenv.root = ./.;
+  # Set devenv root for flakes - use flake root
+  # devenv.root = ./.; # Commented out to avoid infinite recursion - let devenv auto-detect
 
   perSystem = {pkgs, ...}: {
     # Base development shell with common tools
