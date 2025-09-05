@@ -75,16 +75,39 @@ jobs:
         id: security_check
         run: |
           # Check for recent NixOS security announcements
-          curl -s "https://discourse.nixos.org/c/announcements/security/67.json" \
-            | jq '.topic_list.topics[0:5]' > recent-security.json
+          echo "Fetching security announcements from Discourse..."
           
-          # Check if there are recent security updates (last 7 days)
-          recent_security=$(jq -r --arg date "$(date -d '7 days ago' '+%Y-%m-%d')" '[.[] | select(.created_at > $date)] | length' recent-security.json)
-          echo "recent_security_count=$recent_security" >> $GITHUB_OUTPUT
-          
-          if [ "$recent_security" -gt 0 ]; then
-            echo "🚨 Found $recent_security recent security announcements"
-            jq -r '.[] | "- [\(.title)](\(.slug))"' recent-security.json | head -5
+          # Fetch and validate the API response
+          if curl -s "https://discourse.nixos.org/c/announcements/security/67.json" > discourse-response.json; then
+            # Extract topics with null safety
+            jq -r '.topic_list.topics // [] | .[0:5]' discourse-response.json > recent-security.json
+            
+            # Verify we have valid JSON array
+            if jq -e 'type == "array"' recent-security.json > /dev/null; then
+              echo "✅ Successfully fetched security announcements"
+              
+              # Check if there are recent security updates (last 7 days)
+              recent_security=$(jq -r --arg date "$(date -d '7 days ago' '+%Y-%m-%d')" '
+                map(select(.created_at > $date)) | length
+              ' recent-security.json)
+              
+              echo "recent_security_count=$recent_security" >> $GITHUB_OUTPUT
+              
+              if [ "$recent_security" -gt 0 ]; then
+                echo "🚨 Found $recent_security recent security announcements"
+                jq -r '.[] | "- [\(.title)](\(.slug))"' recent-security.json | head -5
+              else
+                echo "ℹ️ No recent security announcements found"
+              fi
+            else
+              echo "⚠️ Invalid response format from Discourse API"
+              echo "recent_security_count=0" >> $GITHUB_OUTPUT
+              echo "[]" > recent-security.json
+            fi
+          else
+            echo "❌ Failed to fetch security announcements from Discourse"
+            echo "recent_security_count=0" >> $GITHUB_OUTPUT
+            echo "[]" > recent-security.json
           fi
 
       - name: Update flake inputs
@@ -361,4 +384,3 @@ jobs:
           else
             echo "❌ Update failed - manual intervention required"
           fi
-
