@@ -1,15 +1,16 @@
+---
 name: Claude Code Integration Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'templates/devenv/claude/**'
       - 'hooks/**'
       - 'docs/devenv/**'
       - '.github/workflows/claude-code-test.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'templates/devenv/claude/**'
       - 'hooks/**'
@@ -20,31 +21,31 @@ jobs:
   test-claude-integration:
     name: Test Claude Code Integration
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-        
+
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Setup Cachix
         uses: cachix/cachix-action@v16
         with:
           name: devenv
-          
+
       - name: Install devenv
         run: |
           nix profile install nixpkgs#devenv
           echo "Devenv installed, checking version..."
           devenv version || echo "Devenv version check failed, continuing..."
-          
+
       - name: Validate Nix templates
         run: |
           echo "Validating Nix template syntax..."
-          
+
           # Create a wrapper to test templates with proper arguments
           cat > test-template.nix << 'EOF'
           { template }:
@@ -55,30 +56,30 @@ jobs:
           in
             import template { inherit pkgs lib config; }
           EOF
-          
+
           # Check minimal template
           nix-instantiate --eval --expr "(import ./test-template.nix { template = ./templates/devenv/claude/minimal.nix; })" > /dev/null
           echo "✅ minimal.nix syntax valid"
-          
+
           # Check with-hooks template
           nix-instantiate --eval --expr "(import ./test-template.nix { template = ./templates/devenv/claude/with-hooks.nix; })" > /dev/null
           echo "✅ with-hooks.nix syntax valid"
-          
+
           # Check commands template
           nix-instantiate --eval --expr "(import ./test-template.nix { template = ./templates/devenv/claude/commands.nix; })" > /dev/null
           echo "✅ commands.nix syntax valid"
-          
+
           # Check agents template
           nix-instantiate --eval --expr "(import ./test-template.nix { template = ./templates/devenv/claude/agents.nix; })" > /dev/null
           echo "✅ agents.nix syntax valid"
-          
+
       - name: Test hook scripts
         run: |
           echo "Testing hook scripts..."
-          
+
           # Test secrets protection hook
           chmod +x hooks/protect-secrets.sh
-          
+
           # Test with a safe file (should pass)
           echo "test content" > test-file.txt
           if ./hooks/protect-secrets.sh test-file.txt; then
@@ -87,7 +88,7 @@ jobs:
             echo "❌ Secrets protection incorrectly blocked safe file"
             exit 1
           fi
-          
+
           # Test with a protected file (should fail)
           echo "password=secret123" > test.env
           if ./hooks/protect-secrets.sh test.env; then
@@ -96,7 +97,7 @@ jobs:
           else
             echo "✅ Secrets protection correctly blocked .env file"
           fi
-          
+
           # Test run-tests hook (should handle no tests gracefully)
           chmod +x hooks/run-tests.sh
           export CLAUDE_SKIP_TESTS=true  # Skip actual test execution
@@ -106,45 +107,45 @@ jobs:
             echo "❌ Test runner failed unexpectedly"
             exit 1
           fi
-          
+
       - name: Test devenv integration
         run: |
           echo "Testing devenv integration..."
-          
+
           # Create a minimal test devenv.nix
           cat > test-devenv.nix << 'EOF'
           { pkgs, ... }:
           {
             packages = with pkgs; [ git jq ];
-            
+
             env = {
               CLAUDE_CODE_ENABLED = "true";
               TEST_ENV = "ci";
             };
-            
+
             enterShell = ''
               echo "Claude Code test environment ready"
             '';
           }
           EOF
-          
+
           # Initialize devenv in current directory
           devenv init || echo "Devenv init failed, continuing..."
-          
+
           # Copy our test config
           cp test-devenv.nix devenv.nix
-          
+
           # Test that devenv can load the configuration
           if timeout 30 devenv shell -- echo "devenv works"; then
             echo "✅ devenv integration works"
           else
             echo "⚠️ devenv integration test skipped (may require interactive setup)"
           fi
-          
+
       - name: Validate documentation
         run: |
           echo "Validating documentation..."
-          
+
           # Check that documentation files exist and are not empty
           if [ -s "docs/devenv/claude-code.md" ]; then
             echo "✅ Main documentation exists"
@@ -152,14 +153,14 @@ jobs:
             echo "❌ Main documentation missing or empty"
             exit 1
           fi
-          
+
           if [ -s "templates/claude-global-config.md" ]; then
             echo "✅ Global config template exists"
           else
             echo "❌ Global config template missing or empty"
             exit 1
           fi
-          
+
           # Check for required sections in documentation
           if grep -q "Quick Start" docs/devenv/claude-code.md; then
             echo "✅ Documentation has Quick Start section"
@@ -167,56 +168,56 @@ jobs:
             echo "❌ Documentation missing Quick Start section"
             exit 1
           fi
-          
+
           if grep -q "Security Features" docs/devenv/claude-code.md; then
             echo "✅ Documentation has Security Features section"
           else
             echo "❌ Documentation missing Security Features section"
             exit 1
           fi
-          
+
       - name: Test template integration
         run: |
           echo "Testing template integration..."
-          
+
           # Create a test project using the minimal template
           mkdir -p test-project
           cd test-project
-          
+
           # Initialize devenv
           devenv init || echo "Devenv init failed, continuing..."
-          
+
           # Copy minimal template as devenv.nix
           cp ../templates/devenv/claude/minimal.nix devenv.nix
-          
+
           # Test that the template can be evaluated
           if timeout 30 devenv shell -- echo "Template integration test"; then
             echo "✅ Minimal template integration works"
           else
             echo "⚠️ Template integration test skipped (may require interactive setup)"
           fi
-          
+
           cd ..
-          
+
       - name: Simulate Claude edit workflow
         run: |
           echo "Simulating Claude edit workflow..."
-          
+
           # Create a test scenario that simulates Claude making an edit
           mkdir -p claude-test
           cd claude-test
-          
+
           # Initialize devenv and set up a minimal project
           devenv init || echo "Devenv init failed, continuing..."
           cp ../templates/devenv/claude/minimal.nix devenv.nix
           echo "# Test file" > test.py
-          
+
           # Simulate environment variables that Claude would set
           export CLAUDE_TOOL_ARGS='{"file_path": "test.py"}'
           export CLAUDE_MODIFIED_FILES="test.py"
           export CLAUDE_QUICK_TESTS=true
           export CLAUDE_SKIP_TESTS=true  # Skip actual tests in CI
-          
+
           # Test the pre-tool-use hook
           if ../hooks/protect-secrets.sh; then
             echo "✅ Pre-tool-use hook allows safe edit"
@@ -224,7 +225,7 @@ jobs:
             echo "❌ Pre-tool-use hook incorrectly blocked safe edit"
             exit 1
           fi
-          
+
           # Test the post-tool-use hook
           if ../hooks/run-tests.sh; then
             echo "✅ Post-tool-use hook completed successfully"
@@ -232,13 +233,13 @@ jobs:
             echo "❌ Post-tool-use hook failed"
             exit 1
           fi
-          
+
           cd ..
-          
+
       - name: Check file permissions
         run: |
           echo "Checking file permissions..."
-          
+
           # Verify hook scripts are executable
           if [ -x "hooks/protect-secrets.sh" ]; then
             echo "✅ protect-secrets.sh is executable"
@@ -246,28 +247,28 @@ jobs:
             echo "❌ protect-secrets.sh is not executable"
             exit 1
           fi
-          
+
           if [ -x "hooks/run-tests.sh" ]; then
             echo "✅ run-tests.sh is executable"
           else
             echo "❌ run-tests.sh is not executable"
             exit 1
           fi
-          
+
       - name: Test cross-platform compatibility
         run: |
           echo "Testing cross-platform compatibility..."
-          
+
           # Test that hooks use POSIX-compatible shell features
           if shellcheck hooks/*.sh; then
             echo "✅ Hook scripts pass shellcheck"
           else
             echo "⚠️  Hook scripts have shellcheck warnings (non-blocking)"
           fi
-          
+
           # Test that templates don't use platform-specific features
           echo "✅ Templates use standard Nix syntax"
-          
+
       - name: Generate test report
         if: always()
         run: |
