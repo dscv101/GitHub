@@ -40,7 +40,8 @@ echo -e "${RED}[ERROR]${NC} $1"
 # Create backup
 
 create_backup() {
-local backup_name="flake.lock.$(date +%Y%m%d_%H%M%S)"
+local backup_name
+backup_name="flake.lock.$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 cp flake.lock "$BACKUP_DIR/$backup_name"
 log_info "Created backup: $BACKUP_DIR/$backup_name"
