@@ -34,7 +34,6 @@
     # Impermanence support
     impermanence = {
       url = "github:nix-community/impermanence";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # Pre-commit hooks (optional)
