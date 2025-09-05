@@ -271,17 +271,19 @@ jobs:
       - name: Generate test report
         if: always()
         run: |
-          echo "## Claude Code Integration Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Components Tested" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Nix template syntax validation" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Hook script functionality" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ devenv integration" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Documentation completeness" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Template integration" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Claude edit workflow simulation" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ File permissions" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Cross-platform compatibility" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Status" >> $GITHUB_STEP_SUMMARY
-          echo "All Claude Code integration tests completed successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Claude Code Integration Test Results"
+            echo ""
+            echo "### Components Tested"
+            echo "- ✅ Nix template syntax validation"
+            echo "- ✅ Hook script functionality"
+            echo "- ✅ devenv integration"
+            echo "- ✅ Documentation completeness"
+            echo "- ✅ Template integration"
+            echo "- ✅ Claude edit workflow simulation"
+            echo "- ✅ File permissions"
+            echo "- ✅ Cross-platform compatibility"
+            echo ""
+            echo "### Status"
+            echo "All Claude Code integration tests completed successfully! 🎉"
+          } >> "$GITHUB_STEP_SUMMARY"

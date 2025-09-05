@@ -1,5 +1,6 @@
 _: {
   perSystem = {pkgs, ...}: {
+    # Basic development shell (devenv temporarily disabled due to flake check issues)
     devShells.default = pkgs.mkShell {
       buildInputs = [
         # Version control
@@ -8,53 +9,44 @@ _: {
 
         # Development environment
         pkgs.direnv
-        pkgs.devenv
 
         # Nix tooling
         pkgs.alejandra
         pkgs.statix
         pkgs.deadnix
         pkgs.nixfmt-rfc-style
-        pkgs.nix-tree # Visualize Nix dependencies
-        pkgs.nix-diff # Compare Nix derivations
-        pkgs.nixpkgs-review # Review nixpkgs PRs
-        pkgs.nurl # Generate Nix fetcher expressions
+        pkgs.nix-tree
+        pkgs.nix-diff
+        pkgs.nixpkgs-review
+        pkgs.nurl
 
         # Shell script tooling
-        pkgs.shellcheck # Shell script linter
-        pkgs.shfmt # Shell script formatter
+        pkgs.shellcheck
+        pkgs.shfmt
 
         # Documentation and config linting
-        pkgs.markdownlint-cli # Markdown linter
-        pkgs.yamllint # YAML linter
-        pkgs.actionlint # GitHub Actions linter
+        pkgs.markdownlint-cli
+        pkgs.yamllint
+        pkgs.actionlint
 
         # Additional formatters and tools
-        pkgs.keep-sorted # Keep imports and lists sorted
-        pkgs.taplo # TOML formatter
-        pkgs.stylua # Lua formatter
-        pkgs.treefmt # Unified formatter
+        pkgs.keep-sorted
+        pkgs.taplo
+        pkgs.stylua
+        pkgs.treefmt
 
         # Additional useful tools
         pkgs.just
         pkgs.sops
         pkgs.age
+        pkgs.curl
+        pkgs.wget
+        pkgs.jq
+        pkgs.yq
       ];
 
       shellHook = ''
         echo "🚀 Development shell ready!"
-        echo ""
-        echo "Development environments:"
-        echo "  devenv shell python  - Python (uv, ruff, mypy, pytest)"
-        echo "  devenv shell rust    - Rust (cargo, clippy, rustfmt)"
-        echo "  devenv shell zig     - Zig (zig, zls)"
-        echo "  devenv shell julia   - Julia (julia, jupyter)"
-        echo ""
-        echo "Project initialization:"
-        echo "  just init-python     - Initialize Python project"
-        echo "  just init-rust       - Initialize Rust project"
-        echo "  just init-zig        - Initialize Zig project"
-        echo "  just init-julia      - Initialize Julia project"
         echo ""
         echo "Available commands:"
         echo "  treefmt              - Format all files (unified)"

@@ -1,4 +1,8 @@
-{inputs, ...}: {
+{
+  inputs,
+  self,
+  ...
+}: {
   imports = [
     inputs.devenv.flakeModule
     ./python.nix
@@ -15,8 +19,8 @@
       # Disable containers to avoid the current directory issue
       containers = {};
 
-      # Fix devenv directory detection for flakes
-      devenv.root = ./.;
+      # Set devenv root for flakes - use self.outPath
+      devenv.root = self.outPath;
 
       packages = [
         # Version control
