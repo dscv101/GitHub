@@ -76,3 +76,32 @@ jobs:
 
       - name: Lint GitHub Actions
         run: nix develop --command actionlint
+
+        
+# Add to your existing .github/workflows/ci.yml
+  test-dependency-updates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'pull_request' && contains(github.head_ref, 'automated-deps-update')
+    needs: [flake-check, code-quality]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.31.0/install
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            substituters = https://cache.nixos.org/ https://nix-community.cachix.org
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+
+      - name: Extended testing for dependency updates
+        run: |
+          # Test that the system actually builds
+          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
+          
+          # Optional: Run additional tests specific to dependency updates
+          # nix build .#checks.x86_64-linux.integration-tests || true
+        
