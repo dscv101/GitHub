@@ -122,8 +122,6 @@ jobs:
       - name: Lint GitHub Actions
         run: nix develop --command actionlint || echo "Warning: actionlint failed"
 
-        
-# Add to your existing .github/workflows/ci.yml
   test-dependency-updates:
     runs-on: ubuntu-latest
     timeout-minutes: 20
