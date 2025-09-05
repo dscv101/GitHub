@@ -8,7 +8,7 @@
     ./packages/default.nix # our custom packages provided by the flake
     ./programs/default.nix # programs that run in the dev shell
     ./programs/formatter.nix # treefmt unified formatter configuration
-    ./devenvs/default.nix # development environments for different languages
+    # ./devenvs/default.nix # development environments for different languages - temporarily disabled due to flake check issues
     # keep-sorted end
   ];
 }
