@@ -1,0 +1,366 @@
+-----
+
+name: Dependency Updates
+
+on:
+schedule:
+# Run weekly on Sundays at 2 AM UTC
+- cron: ‘0 2 * * 0’
+workflow_dispatch:
+inputs:
+update_type:
+description: ‘Type of update to perform’
+required: true
+type: choice
+options:
+- all
+- nixpkgs-only
+- security-only
+default: all
+create_pr:
+description: ‘Create pull request automatically’
+required: false
+type: boolean
+default: true
+
+permissions:
+contents: write
+pull-requests: write
+issues: write
+
+jobs:
+dependency-update:
+runs-on: ubuntu-latest
+timeout-minutes: 45
+steps:
+- name: Checkout repository
+uses: actions/checkout@v5
+with:
+token: ${{ secrets.GITHUB_TOKEN }}
+fetch-depth: 0
+
+```
+  - name: Install Nix
+    uses: cachix/install-nix-action@v31
+    with:
+      install_url: https://releases.nixos.org/nix/nix-2.31.0/install
+      extra_nix_config: |
+        experimental-features = nix-command flakes
+        substituters = https://cache.nixos.org/ https://nix-community.cachix.org
+        trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+
+  - name: Configure Git
+    run: |
+      git config --global user.name "github-actions[bot]"
+      git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+  - name: Capture current state
+    id: current_state
+    run: |
+      # Capture current flake.lock for comparison
+      cp flake.lock flake.lock.backup
+      
+      # Get current commit info
+      echo "current_commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      echo "current_branch=$(git branch --show-current)" >> $GITHUB_OUTPUT
+      
+      # Generate current input summary
+      nix flake metadata --json > current-metadata.json
+      
+      # Extract input information
+      jq -r '.locks.nodes | to_entries[] | select(.value.original) | "\(.key): \(.value.locked.rev // .value.locked.narHash // "unknown")[0:8]"' current-metadata.json > current-inputs.txt
+      
+      echo "Current flake inputs:"
+      cat current-inputs.txt
+
+  - name: Check for security advisories
+    id: security_check
+    run: |
+      # Check for recent NixOS security announcements
+      curl -s "https://discourse.nixos.org/c/announcements/security/67.json" \
+        | jq '.topic_list.topics[0:5]' > recent-security.json
+      
+      # Check if there are recent security updates (last 7 days)
+      recent_security=$(jq -r --arg date "$(date -d '7 days ago' '+%Y-%m-%d')" '[.[] | select(.created_at > $date)] | length' recent-security.json)
+      echo "recent_security_count=$recent_security" >> $GITHUB_OUTPUT
+      
+      if [ "$recent_security" -gt 0 ]; then
+        echo "🚨 Found $recent_security recent security announcements"
+        jq -r '.[] | "- [\(.title)](\(.slug))"' recent-security.json | head -5
+      fi
+
+  - name: Update flake inputs
+    id: update_inputs
+    run: |
+      update_type="${{ github.event.inputs.update_type || 'all' }}"
+      
+      case "$update_type" in
+        "nixpkgs-only")
+          echo "Updating only nixpkgs..."
+          nix flake lock --update-input nixpkgs
+          ;;
+        "security-only")
+          echo "Performing security-focused updates..."
+          # Update critical inputs that commonly have security fixes
+          nix flake lock --update-input nixpkgs
+          nix flake lock --update-input home-manager || true
+          ;;
+        "all"|*)
+          echo "Updating all flake inputs..."
+          nix flake update
+          ;;
+      esac
+      
+      # Check if flake.lock actually changed
+      if diff -q flake.lock flake.lock.backup > /dev/null; then
+        echo "changes_detected=false" >> $GITHUB_OUTPUT
+        echo "No changes detected in flake.lock"
+      else
+        echo "changes_detected=true" >> $GITHUB_OUTPUT
+        echo "Changes detected in flake.lock"
+      fi
+
+  - name: Generate update summary
+    if: steps.update_inputs.outputs.changes_detected == 'true'
+    id: update_summary
+    run: |
+      # Generate new metadata
+      nix flake metadata --json > new-metadata.json
+      
+      # Extract new input information
+      jq -r '.locks.nodes | to_entries[] | select(.value.original) | "\(.key): \(.value.locked.rev // .value.locked.narHash // "unknown")[0:8]"' new-metadata.json > new-inputs.txt
+      
+      # Create detailed change summary
+      cat > update-summary.md << 'EOF'
+      # Dependency Update Summary
+      
+      ## Update Type
+      **Type:** ${{ github.event.inputs.update_type || 'all' }}  
+      **Date:** $(date)  
+      **Trigger:** ${{ github.event_name }}
+      
+      ## Input Changes
+      
+      EOF
+      
+      # Compare old vs new inputs
+      echo "### Updated Inputs" >> update-summary.md
+      echo "" >> update-summary.md
+      
+      # Generate diff of inputs
+      while IFS= read -r line; do
+        input_name=$(echo "$line" | cut -d: -f1)
+        old_hash=$(echo "$line" | cut -d: -f2 | tr -d ' ')
+        new_line=$(grep "^$input_name:" new-inputs.txt || echo "$input_name: [removed]")
+        new_hash=$(echo "$new_line" | cut -d: -f2 | tr -d ' ')
+        
+        if [ "$old_hash" != "$new_hash" ]; then
+          echo "- **$input_name**: \`$old_hash\` → \`$new_hash\`" >> update-summary.md
+        fi
+      done < current-inputs.txt
+      
+      # Check for new inputs
+      echo "" >> update-summary.md
+      echo "### New Inputs" >> update-summary.md
+      echo "" >> update-summary.md
+      
+      while IFS= read -r line; do
+        input_name=$(echo "$line" | cut -d: -f1)
+        if ! grep -q "^$input_name:" current-inputs.txt; then
+          echo "- **$input_name**: $(echo "$line" | cut -d: -f2 | tr -d ' ') *(new)*" >> update-summary.md
+        fi
+      done < new-inputs.txt
+      
+      # Add security context if relevant
+      if [ "${{ steps.security_check.outputs.recent_security_count }}" -gt 0 ]; then
+        echo "" >> update-summary.md
+        echo "## 🔒 Security Context" >> update-summary.md
+        echo "" >> update-summary.md
+        echo "Recent security announcements detected (${{ steps.security_check.outputs.recent_security_count }} in last 7 days):" >> update-summary.md
+        echo "" >> update-summary.md
+        jq -r '.[] | "- [\(.title)](https://discourse.nixos.org/t/\(.slug)/\(.id))"' recent-security.json | head -5 >> update-summary.md
+      fi
+      
+      echo "" >> update-summary.md
+      echo "## Testing Required" >> update-summary.md
+      echo "" >> update-summary.md
+      echo "- [ ] Build test passes" >> update-summary.md
+      echo "- [ ] Flake check passes" >> update-summary.md
+      echo "- [ ] Security scan passes" >> update-summary.md
+      echo "- [ ] Manual testing completed" >> update-summary.md
+
+  - name: Test updated configuration
+    if: steps.update_inputs.outputs.changes_detected == 'true'
+    id: test_build
+    run: |
+      echo "Testing updated configuration..."
+      
+      # Test flake check
+      if nix flake check --show-trace; then
+        echo "✅ Flake check passed"
+        echo "flake_check=success" >> $GITHUB_OUTPUT
+      else
+        echo "❌ Flake check failed"
+        echo "flake_check=failed" >> $GITHUB_OUTPUT
+      fi
+      
+      # Test build
+      if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace; then
+        echo "✅ Build test passed"
+        echo "build_test=success" >> $GITHUB_OUTPUT
+      else
+        echo "❌ Build test failed"
+        echo "build_test=failed" >> $GITHUB_OUTPUT
+      fi
+      
+      # Overall result
+      if [ "${{ steps.test_build.outputs.flake_check }}" = "success" ] && [ "${{ steps.test_build.outputs.build_test }}" = "success" ]; then
+        echo "test_result=success" >> $GITHUB_OUTPUT
+      else
+        echo "test_result=failed" >> $GITHUB_OUTPUT
+      fi
+
+  - name: Run security scan on updated system
+    if: steps.update_inputs.outputs.changes_detected == 'true' && steps.test_build.outputs.test_result == 'success'
+    id: security_scan
+    continue-on-error: true
+    run: |
+      echo "Running security scan on updated system..."
+      
+      # Build the system and get path
+      system_path=$(nix build .#nixosConfigurations.blazar.config.system.build.toplevel --print-out-paths)
+      
+      # Run vulnerability scan
+      mkdir -p security-reports
+      if nix run nixpkgs#vulnix -- --system x86_64-linux --json "$system_path" > security-reports/vulns-after-update.json; then
+        vuln_count=$(jq 'length' security-reports/vulns-after-update.json 2>/dev/null || echo "0")
+        critical_count=$(jq '[.[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' security-reports/vulns-after-update.json 2>/dev/null || echo "0")
+        
+        echo "vulnerabilities=$vuln_count" >> $GITHUB_OUTPUT
+        echo "critical_vulnerabilities=$critical_count" >> $GITHUB_OUTPUT
+        
+        # Add security results to summary
+        cat >> update-summary.md << EOF
+      
+      ## 🔒 Security Scan Results
+      
+      **Total vulnerabilities:** $vuln_count  
+      **Critical/High severity:** $critical_count
+      
+      $(if [ "$critical_count" -gt 0 ]; then
+        echo "⚠️ **Warning:** Critical vulnerabilities detected after update"
+      elif [ "$vuln_count" -gt 0 ]; then
+        echo "ℹ️ **Info:** Some vulnerabilities remain after update"
+      else
+        echo "✅ **Good:** No known vulnerabilities detected"
+      fi)
+      EOF
+      else
+        echo "Security scan failed, but continuing..."
+        echo "vulnerabilities=unknown" >> $GITHUB_OUTPUT
+        echo "critical_vulnerabilities=unknown" >> $GITHUB_OUTPUT
+      fi
+
+  - name: Create pull request
+    if: steps.update_inputs.outputs.changes_detected == 'true' && (github.event.inputs.create_pr != 'false')
+    id: create_pr
+    uses: peter-evans/create-pull-request@v6
+    with:
+      token: ${{ secrets.GITHUB_TOKEN }}
+      commit-message: |
+        chore: update flake inputs (${{ github.event.inputs.update_type || 'all' }})
+        
+        - Update type: ${{ github.event.inputs.update_type || 'all' }}
+        - Build test: ${{ steps.test_build.outputs.test_result }}
+        - Security scan: ${{ steps.security_scan.outputs.vulnerabilities }} vulnerabilities found
+        - Triggered by: ${{ github.event_name }}
+      title: |
+        🔄 Automated Dependency Update (${{ github.event.inputs.update_type || 'all' }})
+      body-path: update-summary.md
+      branch: automated-deps-update-${{ github.run_number }}
+      delete-branch: true
+      labels: |
+        dependencies
+        automated
+        ${{ steps.test_build.outputs.test_result == 'failed' && 'build-failed' || '' }}
+        ${{ steps.security_scan.outputs.critical_vulnerabilities != '0' && steps.security_scan.outputs.critical_vulnerabilities != 'unknown' && 'security-issues' || '' }}
+      draft: ${{ steps.test_build.outputs.test_result == 'failed' }}
+
+  - name: Handle update failure
+    if: steps.update_inputs.outputs.changes_detected == 'true' && steps.test_build.outputs.test_result == 'failed'
+    run: |
+      echo "❌ Update failed - creating issue instead of PR"
+      
+      cat > failure-report.md << 'EOF'
+      # ❌ Automated Dependency Update Failed
+      
+      The automated dependency update process encountered failures and requires manual intervention.
+      
+      ## Failure Details
+      
+      - **Flake Check:** ${{ steps.test_build.outputs.flake_check }}
+      - **Build Test:** ${{ steps.test_build.outputs.build_test }}
+      - **Update Type:** ${{ github.event.inputs.update_type || 'all' }}
+      
+      ## Next Steps
+      
+      1. Review the failed workflow logs
+      2. Manually investigate the failing inputs
+      3. Consider updating inputs individually
+      4. Test changes locally before pushing
+      
+      ## Workflow Run
+      
+      [View failed workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+      EOF
+
+  - name: Create failure issue
+    if: steps.update_inputs.outputs.changes_detected == 'true' && steps.test_build.outputs.test_result == 'failed'
+    uses: actions/github-script@v7
+    with:
+      script: |
+        const fs = require('fs');
+        const report = fs.readFileSync('failure-report.md', 'utf8');
+        
+        await github.rest.issues.create({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          title: `❌ Automated Dependency Update Failed - ${new Date().toISOString().split('T')[0]}`,
+          body: report,
+          labels: ['dependencies', 'failed', 'automated']
+        });
+
+  - name: Upload update artifacts
+    if: steps.update_inputs.outputs.changes_detected == 'true'
+    uses: actions/upload-artifact@v4
+    with:
+      name: dependency-update-${{ github.run_number }}
+      path: |
+        update-summary.md
+        current-inputs.txt
+        new-inputs.txt
+        security-reports/
+        current-metadata.json
+        new-metadata.json
+      retention-days: 30
+
+  - name: Summary output
+    run: |
+      echo "## Dependency Update Summary"
+      echo "- **Changes detected:** ${{ steps.update_inputs.outputs.changes_detected }}"
+      echo "- **Update type:** ${{ github.event.inputs.update_type || 'all' }}"
+      echo "- **Test result:** ${{ steps.test_build.outputs.test_result || 'skipped' }}"
+      echo "- **PR created:** ${{ steps.create_pr.outputs.pull-request-number || 'none' }}"
+      echo "- **Security issues:** ${{ steps.security_scan.outputs.critical_vulnerabilities || 'unknown' }} critical"
+      
+      if [ "${{ steps.update_inputs.outputs.changes_detected }}" = "false" ]; then
+        echo "✅ No updates needed - all dependencies are current"
+      elif [ "${{ steps.test_build.outputs.test_result }}" = "success" ]; then
+        echo "✅ Update completed successfully"
+        if [ -n "${{ steps.create_pr.outputs.pull-request-number }}" ]; then
+          echo "📋 Pull request created: #${{ steps.create_pr.outputs.pull-request-number }}"
+        fi
+      else
+        echo "❌ Update failed - manual intervention required"
+      fi
+```
