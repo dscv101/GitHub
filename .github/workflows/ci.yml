@@ -10,7 +10,6 @@ permissions:
   issues: write
   pull-requests: write
 
-# Cancel previous runs if a new commit is pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -34,7 +33,6 @@ jobs:
 
       - name: Check flake
         run: |
-          echo "Running flake check with detailed output..."
           nix flake check --show-trace --verbose || {
             echo "Flake check failed, attempting to show more details..."
             nix flake show || echo "Could not show flake outputs"
@@ -43,7 +41,6 @@ jobs:
 
       - name: Build NixOS configuration
         run: |
-          echo "Building NixOS configuration..."
           nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --verbose || {
             echo "Build failed, checking if configuration exists..."
             nix flake show | grep -A 10 nixosConfigurations || echo "No nixosConfigurations found"
@@ -68,7 +65,6 @@ jobs:
 
       - name: Check code formatting (treefmt)
         run: |
-          echo "Checking treefmt availability..."
           nix build .#checks.x86_64-linux.treefmt || {
             echo "treefmt check not available, skipping..."
             exit 0
@@ -76,9 +72,7 @@ jobs:
 
       - name: Check code formatting (alejandra fallback)
         run: |
-          echo "Running alejandra format check..."
           nix develop --command alejandra --check . || {
-            echo "Alejandra check failed, showing diff..."
             nix develop --command alejandra --check . 2>&1 || true
             exit 1
           }
@@ -141,7 +135,5 @@ jobs:
 
       - name: Extended testing for dependency updates
         run: |
-          # Test that the system actually builds
           nix build .#nixosConfigurations.blazar.config.system.build.toplevel
-          # Optional: Run additional tests specific to dependency updates
           # nix build .#checks.x86_64-linux.integration-tests || true
