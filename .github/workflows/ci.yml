@@ -1,7 +1,3 @@
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
 ---
 name: CI
 
@@ -9,6 +5,11 @@ on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
 
 # Cancel previous runs if a new commit is pushed
 concurrency:
@@ -108,4 +109,3 @@ jobs:
           
           # Optional: Run additional tests specific to dependency updates
           # nix build .#checks.x86_64-linux.integration-tests || true
-        
