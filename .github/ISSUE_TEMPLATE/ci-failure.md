@@ -17,7 +17,6 @@ assignees: []
 
 | Job | Status |
 |-----|--------|
-| Flake Health | `{{RESULT_FLAKE_HEALTH}}` |
 | Flake Check | `{{RESULT_FLAKE_CHECK}}` |
 | Code Quality | `{{RESULT_CODE_QUALITY}}` |
 | Dependency Update Tests | `{{RESULT_DEP_UPDATE}}` |
