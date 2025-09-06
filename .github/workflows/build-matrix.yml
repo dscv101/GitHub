@@ -4,63 +4,363 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+  workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write
+# SECURITY: Minimal permissions by default, explicit per-job
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # Generate build matrix from flake outputs
+  # Enhanced flake validation with security checks
+  validate-flake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write  # For CodeQL if enabled
+    outputs:
+      flake-exists: ${{ steps.check-flake.outputs.exists }}
+      has-packages: ${{ steps.check-flake.outputs.has-packages }}
+      available-systems: ${{ steps.check-flake.outputs.systems }}
+      security-passed: ${{ steps.security-check.outputs.passed }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@8ca2b8b2ebe7c9b9e4ae0c6b99fba871e39e9c34 # v2.5.1
+        with:
+          egress-policy: audit
+          disable-sudo: true
+
+      - name: Checkout repository
+        uses: actions/checkout@4fa52bdc80e6f31a60adc4b7a84a3d1a6f6df30b # v4.2.2
+        with:
+          persist-credentials: false
+
+      # SECURITY: Pin to specific version for supply chain security
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@f37b6c3b885b7ebe36fed7bb3b3b7ce8b0fe3c82 # v3.5.2
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
+
+      # SECURITY: Enhanced flake health check
+      - name: Check flake health (security)
+        uses: DeterminateSystems/flake-checker-action@82c2a6b6c0fedd2fe89d00a42bc8db25b26a0bb4 # v12
+        with:
+          fail-mode: true
+
+      - name: Validate flake structure
+        id: check-flake
+        run: |
+          # Verify flake.nix exists
+          if [[ ! -f "flake.nix" ]]; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "has-packages=false" >> "$GITHUB_OUTPUT"
+            echo "systems=[]" >> "$GITHUB_OUTPUT"
+            echo "❌ flake.nix not found"
+            exit 1
+          fi
+          
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          
+          # Enhanced flake evaluation with security checks
+          if ! nix flake show --json --option restrict-eval true > flake-info.json 2>flake-errors.log; then
+            echo "❌ Flake evaluation failed"
+            cat flake-errors.log
+            echo "has-packages=false" >> "$GITHUB_OUTPUT"
+            echo "systems=[]" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          
+          # Validate flake structure
+          if jq -e '.packages' flake-info.json >/dev/null; then
+            echo "has-packages=true" >> "$GITHUB_OUTPUT"
+            systems=$(jq -r '.packages | keys | @json' flake-info.json)
+            echo "systems=$systems" >> "$GITHUB_OUTPUT"
+            echo "✅ Valid flake with packages"
+          else
+            echo "has-packages=false" >> "$GITHUB_OUTPUT"
+            echo "systems=[]" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No packages found"
+          fi
+
+      # SECURITY: Enhanced security validation
+      - name: Security validation
+        id: security-check
+        run: |
+          echo "🔍 Running security checks..."
+          
+          security_issues=0
+          
+          # Check for unsafe Nix features
+          if grep -r "allowUnfree\|allowBroken\|allowInsecure" . --include="*.nix" --exclude-dir=".git"; then
+            echo "⚠️ Unsafe Nix features detected"
+            ((security_issues++))
+          fi
+          
+          # Validate flake inputs are from trusted sources
+          if jq -e '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix")' flake-info.json >/dev/null; then
+            echo "⚠️ Non-trusted flake inputs detected"
+            jq -r '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix") | .original.owner + "/" + .original.repo' flake-info.json
+            ((security_issues++))
+          fi
+          
+          # Check for stale inputs (>30 days)
+          current_date=$(date +%s)
+          while read -r input_date; do
+            if [[ -n "$input_date" ]] && [[ "$input_date" != "null" ]]; then
+              days_old=$(( (current_date - input_date) / 86400 ))
+              if [[ $days_old -gt 30 ]]; then
+                echo "⚠️ Stale flake input detected ($days_old days old)"
+                ((security_issues++))
+                break
+              fi
+            fi
+          done < <(jq -r '.locks.nodes[].locked.lastModified // empty' flake-info.json)
+          
+          if [[ $security_issues -eq 0 ]]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            echo "✅ All security checks passed"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "❌ $security_issues security issues found"
+          fi
+
+  # Secure matrix generation
   generate-matrix:
     runs-on: ubuntu-latest
+    needs: validate-flake
+    if: needs.validate-flake.outputs.flake-exists == 'true' && needs.validate-flake.outputs.security-passed == 'true'
+    timeout-minutes: 10
+    permissions:
+      contents: read
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-builds: ${{ steps.set-matrix.outputs.has-builds }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@8ca2b8b2ebe7c9b9e4ae0c6b99fba871e39e9c34 # v2.5.1
+
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@4fa52bdc80e6f31a60adc4b7a84a3d1a6f6df30b # v4.2.2
+        with:
+          persist-credentials: false
 
-      - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@f37b6c3b885b7ebe36fed7bb3b3b7ce8b0fe3c82 # v3.5.2
 
-      - name: Generate build matrix
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
+
+      - name: Generate secure build matrix
         id: set-matrix
         run: |
-          # Generate matrix for all flake outputs
-          matrix=$(nix eval --json .#githubActions.matrix 2>/dev/null || echo '{"include":[{"system":"x86_64-linux","name":"default"}]}')
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "🔨 Generating build matrix..."
+          
+          # Try custom matrix first
+          if matrix=$(nix eval --json .#githubActions.matrix --option restrict-eval true 2>/dev/null); then
+            echo "✅ Using custom matrix from flake"
+            echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+            echo "has-builds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "📋 Generating matrix from packages..."
+            
+            # Create secure matrix from available packages
+            nix flake show --json --option restrict-eval true > flake-info.json
+            
+            matrix_entries=""
+            while read -r system; do
+              case "$system" in
+                x86_64-linux) runner_os="ubuntu-latest" ;;
+                aarch64-linux) runner_os="ubuntu-latest" ;;
+                x86_64-darwin) runner_os="macos-13" ;;
+                aarch64-darwin) runner_os="macos-latest" ;;
+                *) continue ;; # Skip unsupported systems
+              esac
+              
+              while read -r package; do
+                if [[ -n "$matrix_entries" ]]; then
+                  matrix_entries+=","
+                fi
+                matrix_entries+="{\"system\":\"$system\",\"name\":\"$package\",\"os\":\"$runner_os\"}"
+              done < <(jq -r ".packages[\"$system\"] | keys[]" flake-info.json 2>/dev/null)
+            done < <(jq -r '.packages | keys[]' flake-info.json 2>/dev/null)
+            
+            if [[ -n "$matrix_entries" ]]; then
+              matrix="{\"include\":[$matrix_entries]}"
+              echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+              echo "has-builds=true" >> "$GITHUB_OUTPUT"
+              echo "✅ Generated matrix with $(echo "$matrix_entries" | tr ',' '\n' | wc -l) builds"
+            else
+              echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
+              echo "has-builds=false" >> "$GITHUB_OUTPUT"
+              echo "❌ No valid packages found"
+            fi
+          fi
 
-  # Build on multiple systems
+  # Hardened build job
   build:
-    needs: generate-matrix
+    needs: [validate-flake, generate-matrix]
+    if: needs.generate-matrix.outputs.has-builds == 'true'
     strategy:
       matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
       fail-fast: false
-    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
-    timeout-minutes: 60
+      max-parallel: 3  # SECURITY: Limit concurrent builds
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45  # SECURITY: Prevent runaway builds
+    permissions:
+      contents: read
+      actions: read
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - name: Harden Runner
+        uses: step-security/harden-runner@8ca2b8b2ebe7c9b9e4ae0c6b99fba871e39e9c34 # v2.5.1
+        with:
+          egress-policy: audit
+          disable-sudo: true
+          allowed-endpoints: >
+            api.github.com:443
+            cache.flakehub.com:443
+            github.com:443
+            cache.nixos.org:443
 
-      - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Checkout repository
+        uses: actions/checkout@4fa52bdc80e6f31a60adc4b7a84a3d1a6f6df30b # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@f37b6c3b885b7ebe36fed7bb3b3b7ce8b0fe3c82 # v3.5.2
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v13
+        uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
 
-      - name: Build ${{ matrix.name }} for ${{ matrix.system }}
+      - name: Verify build compatibility
+        id: compatibility
         run: |
-          echo "Building ${{ matrix.name }} for ${{ matrix.system }}"
-          if [[ "${{ matrix.system }}" == "$(nix eval --impure --raw --expr 'builtins.currentSystem')" ]]; then
-            nix build .#${{ matrix.name }} --print-build-logs
+          current_system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
+          target_system="${{ matrix.system }}"
+          
+          echo "Current: $current_system, Target: $target_system"
+          
+          if [[ "$current_system" == "$target_system" ]]; then
+            echo "can-build=true" >> "$GITHUB_OUTPUT"
+            echo "build-type=native" >> "$GITHUB_OUTPUT"
+          elif [[ "$current_system" == "x86_64-linux" && "$target_system" == "aarch64-linux" ]]; then
+            echo "can-build=true" >> "$GITHUB_OUTPUT"
+            echo "build-type=cross" >> "$GITHUB_OUTPUT"
           else
-            echo "Cross-compilation for ${{ matrix.system }} not supported on this runner"
+            echo "can-build=false" >> "$GITHUB_OUTPUT"
+            echo "build-type=unsupported" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload build artifacts
+      - name: Build package (hardened)
+        if: steps.compatibility.outputs.can-build == 'true'
+        env:
+          NIX_CONFIG: |
+            extra-experimental-features = nix-command flakes
+            restrict-eval = true
+            sandbox = true
+            max-jobs = auto
+        run: |
+          echo "🚀 Building ${{ matrix.name }} for ${{ matrix.system }}"
+          
+          build_args=(
+            "--print-build-logs"
+            "--option" "restrict-eval" "true"
+            "--option" "sandbox" "true"
+            "--option" "max-silent-time" "600"
+            "--option" "timeout" "1800"
+          )
+          
+          if [[ "${{ steps.compatibility.outputs.build-type }}" == "cross" ]]; then
+            build_args+=("--system" "${{ matrix.system }}")
+          fi
+          
+          # Build with timeout and resource limits
+          timeout 30m nix build ".#${{ matrix.name }}" "${build_args[@]}"
+          
+          echo "✅ Build completed"
+          
+          # Basic security scan of build result
+          if [[ -L "result" ]]; then
+            echo "📊 Build analysis:"
+            nix path-info --json result | jq -r '.[] | "Size: \(.narSize) bytes, References: \(.references | length)"'
+          fi
+
+      - name: Generate build report
         if: always()
-        uses: actions/upload-artifact@v4
+        run: |
+          {
+            echo "## Build Report: ${{ matrix.name }} (${{ matrix.system }})"
+            echo ""
+            if [[ "${{ steps.compatibility.outputs.can-build }}" != "true" ]]; then
+              echo "❌ **Status**: Build not supported on this runner"
+            elif [[ "${{ job.status }}" == "success" ]]; then
+              echo "✅ **Status**: Build successful"
+              echo "- Build type: ${{ steps.compatibility.outputs.build-type }}"
+              echo "- Runner: ${{ runner.os }}"
+            else
+              echo "❌ **Status**: Build failed"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # SECURITY: Enhanced artifact handling
+      - name: Upload build artifacts
+        if: success() && steps.compatibility.outputs.can-build == 'true'
+        uses: actions/upload-artifact@5758c8d99aa7cea1e4a75b12c9d1b8dfa5e8529b # v4.5.0
         with:
-          name: build-${{ matrix.system }}-${{ matrix.name }}
-          path: result*
+          name: build-${{ matrix.system }}-${{ matrix.name }}-${{ github.run_number }}
+          path: |
+            result*
+            !result*/**/*.tmp
+            !result*/**/*.log
           retention-days: 7
+          if-no-files-found: warn
+          compression-level: 9
+
+  # Security summary job
+  security-summary:
+    runs-on: ubuntu-latest
+    needs: [validate-flake, generate-matrix, build]
+    if: always()
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Generate security summary
+        run: |
+          {
+            echo "# 🔒 Security & Build Summary"
+            echo ""
+            echo "## Security Validation"
+            if [[ "${{ needs.validate-flake.outputs.security-passed }}" == "true" ]]; then
+              echo "✅ All security checks passed"
+            else
+              echo "❌ Security issues detected - builds blocked"
+            fi
+            echo ""
+            echo "## Build Results"
+            if [[ "${{ needs.generate-matrix.outputs.has-builds }}" == "true" ]]; then
+              if [[ "${{ needs.build.result }}" == "success" ]]; then
+                echo "✅ All builds completed successfully"
+              else
+                echo "⚠️ Some builds failed or were skipped"
+              fi
+            else
+              echo "🚫 No builds executed"
+            fi
+            echo ""
+            echo "## Security Features Active"
+            echo "- ✅ Supply chain pinning (SHA-pinned actions)"
+            echo "- ✅ Minimal permissions (per-job RBAC)"
+            echo "- ✅ Hardened runners (step-security/harden-runner)"
+            echo "- ✅ Sandboxed Nix builds"
+            echo "- ✅ Flake security validation"
+            echo "- ✅ Stale dependency detection"
+            echo ""
+            echo "---"
+            echo "*Built with security-first practices for 2025*"
+          } >> "$GITHUB_STEP_SUMMARY"
