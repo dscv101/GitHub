@@ -31,7 +31,7 @@ jobs:
 
       # Add FlakeHub Cache - this is the key addition
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
+        uses: DeterminateSystems/magic-nix-cache-action@v13
 
       - name: Check flake
         run: |
@@ -60,7 +60,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@v3
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
+        uses: DeterminateSystems/magic-nix-cache-action@v13
 
       - name: Check code formatting (treefmt)
         run: |
@@ -129,7 +129,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@v3
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
+        uses: DeterminateSystems/magic-nix-cache-action@v13
 
       - name: Extended testing for dependency updates
         run: |
