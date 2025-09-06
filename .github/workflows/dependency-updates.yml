@@ -48,7 +48,7 @@ jobs:
 
       # ENHANCED: Add flake health check before updates
       - name: Check current flake health
-        uses: DeterminateSystems/flake-checker-action@v2
+        uses: DeterminateSystems/flake-checker-action@v12
         with:
           fail-mode: false
         continue-on-error: true
@@ -150,7 +150,7 @@ jobs:
       # ENHANCED: Add flake health check after updates
       - name: Check updated flake health
         if: steps.update_inputs.outputs.changes_detected == 'true'
-        uses: DeterminateSystems/flake-checker-action@v2
+        uses: DeterminateSystems/flake-checker-action@v12
         with:
           fail-mode: false
         continue-on-error: true
