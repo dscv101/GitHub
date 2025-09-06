@@ -311,7 +311,7 @@ jobs:
       - name: Create pull request
         if: steps.update_inputs.outputs.changes_detected == 'true' && (github.event.inputs.create_pr != 'false')
         id: create_pr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GH_TOKEN_FOR_UPDATES }}
           commit-message: |
