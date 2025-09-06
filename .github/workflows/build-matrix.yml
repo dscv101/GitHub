@@ -91,7 +91,7 @@ jobs:
 
       - name: Create pull request
         if: steps.update.outputs.updated_packages != ''
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           title: "chore: update Nix packages (${{ steps.update.outputs.packages }})"
           body-path: update-report.md
