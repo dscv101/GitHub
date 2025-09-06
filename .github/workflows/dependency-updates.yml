@@ -52,14 +52,14 @@ jobs:
           fetch-depth: 0
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@f37b6c3b885b7ebe36fed7bb3b3b7ce8b0fe3c82 # v3.5.2
+        uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
 
       # ENHANCED: Flake health check before updates
       - name: Pre-update health check
-        uses: DeterminateSystems/flake-checker-action@82c2a6b6c0fedd2fe89d00a42bc8db25b26a0bb4 # v12
+        uses: DeterminateSystems/flake-checker-action@3164002371bc90729c68af0e24d5aacf20d7c9f6 # v12
         with:
           fail-mode: false
         continue-on-error: true
