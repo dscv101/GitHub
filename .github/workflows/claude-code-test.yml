@@ -45,7 +45,7 @@ jobs:
       # ENHANCED: Add flake health check if this is a flake-based project
       - name: Check flake health
         if: hashFiles('flake.nix') != ''
-        uses: DeterminateSystems/flake-checker-action@v2
+        uses: DeterminateSystems/flake-checker-action@v12
         with:
           fail-mode: false
         continue-on-error: true
