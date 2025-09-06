@@ -40,7 +40,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@v3
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
+        uses: DeterminateSystems/magic-nix-cache-action@v13
 
       # ENHANCED: Add flake health check if this is a flake-based project
       - name: Check flake health
@@ -397,7 +397,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@v3
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
+        uses: DeterminateSystems/magic-nix-cache-action@v13
 
       - name: Security scan of hook scripts
         run: |
