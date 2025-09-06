@@ -1,122 +1,329 @@
-# .github/dependency-updates.yml
+---
+name: Dependency Updates
 
-# Configuration for automated dependency updates
+on:
+  schedule:
+    # This will be read from config file, but we need a default
+    - cron: '0 2 * * 0'  # Default: weekly on Sundays at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of update to perform'
+        required: true
+        type: choice
+        options:
+          - all
+          - nixpkgs-only
+          - security-only
+        default: all
+      create_pr:
+        description: 'Create pull request automatically'
+        required: false
+        type: boolean
+        default: true
+      config_override:
+        description: 'Override config file settings (JSON)'
+        required: false
+        type: string
 
-# Update schedule and behavior
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
 
-schedule:
+jobs:
+  dependency-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # Will be overridden by config
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-# When to run automatic updates
+      # NEW: Load and parse configuration
+      - name: Load configuration
+        id: config
+        run: |
+          # Load the YAML config file
+          if [ ! -f ".github/dependency-updates.yml" ]; then
+            echo "❌ Configuration file not found at .github/dependency-updates.yml"
+            exit 1
+          fi
+          
+          # Install yq for YAML parsing
+          sudo snap install yq
+          
+          # Parse configuration into environment variables
+          CONFIG_FILE=".github/dependency-updates.yml"
+          
+          # Schedule settings
+          FREQUENCY=$(yq '.schedule.frequency' "$CONFIG_FILE")
+          DAY=$(yq '.schedule.day' "$CONFIG_FILE")
+          TIME=$(yq '.schedule.time' "$CONFIG_FILE")
+          
+          # Strategy settings  
+          DEFAULT_UPDATE_TYPE=$(yq '.strategy.default_update_type' "$CONFIG_FILE")
+          EXCLUDE_INPUTS=$(yq '.strategy.exclude_inputs[]' "$CONFIG_FILE" | tr '\n' ' ')
+          CRITICAL_INPUTS=$(yq '.strategy.critical_inputs[]' "$CONFIG_FILE" | tr '\n' ' ')
+          SECURITY_INPUTS=$(yq '.strategy.security_inputs[]' "$CONFIG_FILE" | tr '\n' ' ')
+          
+          # Testing settings
+          REQUIRED_TESTS=$(yq '.testing.required_tests[]' "$CONFIG_FILE" | tr '\n' ' ')
+          FAIL_ON_CRITICAL_VULNS=$(yq '.testing.fail_on_critical_vulns' "$CONFIG_FILE")
+          MAX_VULNERABILITIES=$(yq '.testing.max_vulnerabilities' "$CONFIG_FILE")
+          DRAFT_ON_FAILURE=$(yq '.testing.draft_on_failure' "$CONFIG_FILE")
+          
+          # PR settings
+          AUTO_CREATE=$(yq '.pull_request.auto_create' "$CONFIG_FILE")
+          REVIEWERS=$(yq '.pull_request.reviewers[]' "$CONFIG_FILE" | tr '\n' ',' | sed 's/,$//')
+          LABELS=$(yq '.pull_request.labels[]' "$CONFIG_FILE" | tr '\n' ',' | sed 's/,$//')
+          BRANCH_PREFIX=$(yq '.pull_request.branch_prefix' "$CONFIG_FILE")
+          TITLE_TEMPLATE=$(yq '.pull_request.title_template' "$CONFIG_FILE")
+          
+          # Notification settings
+          CREATE_FAILURE_ISSUES=$(yq '.notifications.create_failure_issues' "$CONFIG_FILE")
+          NOTIFY_SECURITY_UPDATES=$(yq '.notifications.notify_security_updates' "$CONFIG_FILE")
+          SLACK_WEBHOOK_SECRET=$(yq '.notifications.slack_webhook_secret' "$CONFIG_FILE")
+          
+          # Advanced settings
+          WORKFLOW_TIMEOUT=$(yq '.advanced.workflow_timeout' "$CONFIG_FILE")
+          ARTIFACT_RETENTION=$(yq '.advanced.artifact_retention' "$CONFIG_FILE")
+          MAX_CONCURRENT_PRS=$(yq '.advanced.max_concurrent_prs' "$CONFIG_FILE")
+          
+          # Apply manual overrides if provided
+          if [ -n "${{ github.event.inputs.config_override }}" ]; then
+            echo "Applying configuration overrides..."
+            echo '${{ github.event.inputs.config_override }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "$GITHUB_ENV"
+          fi
+          
+          # Export all config as outputs and environment variables
+          {
+            echo "default_update_type=$DEFAULT_UPDATE_TYPE"
+            echo "exclude_inputs=$EXCLUDE_INPUTS"
+            echo "critical_inputs=$CRITICAL_INPUTS"
+            echo "security_inputs=$SECURITY_INPUTS"
+            echo "required_tests=$REQUIRED_TESTS"
+            echo "fail_on_critical_vulns=$FAIL_ON_CRITICAL_VULNS"
+            echo "max_vulnerabilities=$MAX_VULNERABILITIES"
+            echo "draft_on_failure=$DRAFT_ON_FAILURE"
+            echo "auto_create=$AUTO_CREATE"
+            echo "reviewers=$REVIEWERS"
+            echo "labels=$LABELS"
+            echo "branch_prefix=$BRANCH_PREFIX"
+            echo "title_template=$TITLE_TEMPLATE"
+            echo "create_failure_issues=$CREATE_FAILURE_ISSUES"
+            echo "notify_security_updates=$NOTIFY_SECURITY_UPDATES"
+            echo "slack_webhook_secret=$SLACK_WEBHOOK_SECRET"
+            echo "workflow_timeout=$WORKFLOW_TIMEOUT"
+            echo "artifact_retention=$ARTIFACT_RETENTION"
+            echo "max_concurrent_prs=$MAX_CONCURRENT_PRS"
+          } >> "$GITHUB_OUTPUT"
+          
+          # Also export to environment for use in subsequent steps
+          {
+            echo "CONFIG_DEFAULT_UPDATE_TYPE=$DEFAULT_UPDATE_TYPE"
+            echo "CONFIG_EXCLUDE_INPUTS=$EXCLUDE_INPUTS"
+            echo "CONFIG_CRITICAL_INPUTS=$CRITICAL_INPUTS"
+            echo "CONFIG_SECURITY_INPUTS=$SECURITY_INPUTS"
+            echo "CONFIG_REQUIRED_TESTS=$REQUIRED_TESTS"
+            echo "CONFIG_FAIL_ON_CRITICAL_VULNS=$FAIL_ON_CRITICAL_VULNS"
+            echo "CONFIG_MAX_VULNERABILITIES=$MAX_VULNERABILITIES"
+            echo "CONFIG_DRAFT_ON_FAILURE=$DRAFT_ON_FAILURE"
+            echo "CONFIG_AUTO_CREATE=$AUTO_CREATE"
+            echo "CONFIG_REVIEWERS=$REVIEWERS"
+            echo "CONFIG_LABELS=$LABELS"
+            echo "CONFIG_BRANCH_PREFIX=$BRANCH_PREFIX"
+            echo "CONFIG_TITLE_TEMPLATE=$TITLE_TEMPLATE"
+            echo "CONFIG_CREATE_FAILURE_ISSUES=$CREATE_FAILURE_ISSUES"
+            echo "CONFIG_NOTIFY_SECURITY_UPDATES=$NOTIFY_SECURITY_UPDATES"
+            echo "CONFIG_SLACK_WEBHOOK_SECRET=$SLACK_WEBHOOK_SECRET"
+            echo "CONFIG_WORKFLOW_TIMEOUT=$WORKFLOW_TIMEOUT"
+            echo "CONFIG_ARTIFACT_RETENTION=$ARTIFACT_RETENTION"
+            echo "CONFIG_MAX_CONCURRENT_PRS=$MAX_CONCURRENT_PRS"
+          } >> "$GITHUB_ENV"
+          
+          echo "✅ Configuration loaded successfully"
+          echo "Update type: $DEFAULT_UPDATE_TYPE"
+          echo "Critical inputs: $CRITICAL_INPUTS"
+          echo "Required tests: $REQUIRED_TESTS"
 
-frequency: weekly  # daily, weekly, monthly
-day: sunday       # monday, tuesday, etc. (for weekly)
-time: “02:00”     # UTC time
+      # Check for existing PRs to respect max_concurrent_prs
+      - name: Check existing update PRs
+        id: existing_prs
+        run: |
+          # Count existing automated dependency update PRs
+          existing_count=$(gh pr list --state open --label "automated,dependencies" --json number | jq length)
+          max_concurrent="${{ steps.config.outputs.max_concurrent_prs }}"
+          
+          echo "existing_count=$existing_count" >> "$GITHUB_OUTPUT"
+          echo "max_concurrent=$max_concurrent" >> "$GITHUB_OUTPUT"
+          
+          if [ "$existing_count" -ge "$max_concurrent" ]; then
+            echo "⚠️ Maximum concurrent PRs ($max_concurrent) reached. Current: $existing_count"
+            echo "should_continue=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ Can proceed with update. Current PRs: $existing_count/$max_concurrent"
+            echo "should_continue=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-# Update strategy
+      - name: Install Nix
+        if: steps.existing_prs.outputs.should_continue == 'true'
+        uses: DeterminateSystems/determinate-nix-action@v3
 
-strategy:
+      - name: Setup FlakeHub Cache
+        if: steps.existing_prs.outputs.should_continue == 'true'
+        uses: DeterminateSystems/flakehub-cache-action@v2
 
-# What to update by default
+      - name: Check current flake health
+        if: steps.existing_prs.outputs.should_continue == 'true'
+        uses: DeterminateSystems/flake-checker-action@v2
+        with:
+          fail-mode: false
+        continue-on-error: true
 
-default_update_type: all  # all, nixpkgs-only, security-only
+      - name: Configure Git
+        if: steps.existing_prs.outputs.should_continue == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-# Inputs to always exclude from updates
+      - name: Capture current state
+        if: steps.existing_prs.outputs.should_continue == 'true'
+        id: current_state
+        run: |
+          # Capture current flake.lock for comparison
+          cp flake.lock flake.lock.backup
+          
+          # Get current commit info
+          echo "current_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "current_branch=$(git branch --show-current)" >> "$GITHUB_OUTPUT"
+          
+          # Generate current input summary
+          nix flake metadata --json > current-metadata.json
+          
+          # Extract input information
+          jq -r '.locks.nodes | to_entries[] | select(.value.original) | "\(.key): \(.value.locked.rev // .value.locked.narHash // "unknown")[0:8]"' current-metadata.json > current-inputs.txt
+          
+          echo "Current flake inputs:"
+          cat current-inputs.txt
 
-exclude_inputs: []
-# - “some-unstable-input”
-# - “local-override”
+      - name: Check for security advisories
+        if: steps.existing_prs.outputs.should_continue == 'true'
+        id: security_check
+        run: |
+          echo "Fetching security announcements from Discourse..."
+          
+          if curl -s "https://discourse.nixos.org/c/announcements/security/67.json" > discourse-response.json; then
+            jq -r '.topic_list.topics // [] | .[0:5]' discourse-response.json > recent-security.json
+            
+            if jq -e 'type == "array"' recent-security.json > /dev/null; then
+              echo "✅ Successfully fetched security announcements"
+              
+              recent_security=$(jq -r --arg date "$(date -d '7 days ago' '+%Y-%m-%d')" '
+                map(select(.created_at > $date)) | length
+              ' recent-security.json)
+              
+              echo "recent_security_count=$recent_security" >> "$GITHUB_OUTPUT"
+              
+              if [ "$recent_security" -gt 0 ]; then
+                echo "🚨 Found $recent_security recent security announcements"
+                jq -r '.[] | "- [\(.title)](\(.slug))"' recent-security.json | head -5
+              else
+                echo "ℹ️ No recent security announcements found"
+              fi
+            else
+              echo "⚠️ Invalid response format from Discourse API"
+              echo "recent_security_count=0" >> "$GITHUB_OUTPUT"
+              echo "[]" > recent-security.json
+            fi
+          else
+            echo "❌ Failed to fetch security announcements from Discourse"
+            echo "recent_security_count=0" >> "$GITHUB_OUTPUT"
+            echo "[]" > recent-security.json
+          fi
 
-# Inputs that require special handling
+      - name: Update flake inputs
+        if: steps.existing_prs.outputs.should_continue == 'true'
+        id: update_inputs
+        run: |
+          # Use config-driven update type, fallback to input, then config default
+          update_type="${{ github.event.inputs.update_type }}"
+          if [ -z "$update_type" ] || [ "$update_type" = "null" ]; then
+            update_type="${{ steps.config.outputs.default_update_type }}"
+          fi
+          
+          # Get exclusions from config
+          exclude_inputs="${{ steps.config.outputs.exclude_inputs }}"
+          critical_inputs="${{ steps.config.outputs.critical_inputs }}"
+          security_inputs="${{ steps.config.outputs.security_inputs }}"
+          
+          case "$update_type" in
+            "nixpkgs-only")
+              echo "Updating only nixpkgs..."
+              nix flake lock --update-input nixpkgs
+              ;;
+            "security-only")
+              echo "Performing security-focused updates..."
+              # Update security-critical inputs from config
+              for input in $security_inputs; do
+                echo "Updating security input: $input"
+                nix flake lock --update-input "$input" || echo "Warning: Failed to update $input"
+              done
+              ;;
+            "all"|*)
+              echo "Updating all flake inputs..."
+              if [ -n "$exclude_inputs" ]; then
+                echo "Excluding inputs: $exclude_inputs"
+                # Update all except excluded
+                for input in $(nix flake metadata --json | jq -r '.locks.nodes | keys[]' | grep -v root); do
+                  if echo "$exclude_inputs" | grep -vq "$input"; then
+                    nix flake lock --update-input "$input" || echo "Warning: Failed to update $input"
+                  fi
+                done
+              else
+                nix flake update
+              fi
+              ;;
+          esac
+          
+          # Check if flake.lock actually changed
+          if diff -q flake.lock flake.lock.backup > /dev/null; then
+            echo "changes_detected=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected in flake.lock"
+          else
+            echo "changes_detected=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected in flake.lock"
+          fi
 
-critical_inputs:
-- nixpkgs
-- home-manager
+      # Continue with rest of workflow using config values...
+      # [Rest of the steps would be similar to your existing workflow but using config values]
 
-# Security-focused updates (when security-only is selected)
+      - name: Create pull request
+        if: steps.update_inputs.outputs.changes_detected == 'true' && steps.config.outputs.auto_create == 'true'
+        id: create_pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: ${{ steps.config.outputs.title_template }}
+          branch: ${{ steps.config.outputs.branch_prefix }}-${{ github.run_number }}
+          labels: ${{ steps.config.outputs.labels }}
+          reviewers: ${{ steps.config.outputs.reviewers }}
+          draft: ${{ (steps.test_build.outputs.test_result == 'failed' && steps.config.outputs.draft_on_failure == 'true') || false }}
+          # ... other PR settings
 
-security_inputs:
-- nixpkgs
-- home-manager
-- nixos-hardware
-
-# Testing and validation
-
-testing:
-
-# Required tests before creating PR
-
-required_tests:
-- flake_check
-- build_test
-- security_scan
-
-# Fail PR creation if critical vulnerabilities found
-
-fail_on_critical_vulns: true
-
-# Maximum acceptable vulnerability count
-
-max_vulnerabilities: 10
-
-# Create draft PR if tests fail
-
-draft_on_failure: true
-
-# Pull request settings
-
-pull_request:
-
-# Auto-create PRs (set to false for manual review)
-
-auto_create: true
-
-# Auto-assign reviewers
-
-reviewers: []
-# - “@username”
-
-# Labels to apply
-
-labels:
-- dependencies
-- automated
-
-# Branch naming pattern
-
-branch_prefix: “automated-deps-update”
-
-# PR title template
-
-title_template: “🔄 Automated Dependency Update ({update_type})”
-
-# Notification settings
-
-notifications:
-
-# Create GitHub issues on failure
-
-create_failure_issues: true
-
-# Notify on security updates
-
-notify_security_updates: true
-
-# Slack webhook for notifications (set in secrets)
-
-slack_webhook_secret: “SLACK_WEBHOOK_URL”
-
-# Advanced settings
-
-advanced:
-
-# Timeout for the entire workflow (minutes)
-
-workflow_timeout: 45
-
-# Keep artifacts for this many days
-
-artifact_retention: 30
-
-# Maximum number of concurrent update PRs
-
-max_concurrent_prs: 1
+      # Notification step using config
+      - name: Send notifications
+        if: steps.config.outputs.notify_security_updates == 'true' && steps.security_check.outputs.recent_security_count > 0
+        run: |
+          webhook_secret="${{ steps.config.outputs.slack_webhook_secret }}"
+          if [ -n "$webhook_secret" ] && [ "$webhook_secret" != "null" ]; then
+            # Send Slack notification using the webhook from secrets
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🔒 Security-related dependency update available. Recent advisories: ${{ steps.security_check.outputs.recent_security_count }}\"}" \
+              "${{ secrets[steps.config.outputs.slack_webhook_secret] }}"
+          fi
