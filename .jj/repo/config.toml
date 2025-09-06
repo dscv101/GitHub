@@ -1,0 +1,10 @@
+[git]
+fetch = "origin"
+push = "origin"
+auto-local-bookmark = true  # Import all remote bookmarks
+
+[aliases]
+# Helpful aliases for codegen workflow
+sync = ["git", "fetch", "--all-remotes"]
+push-change = ["git", "push", "--change"]
+new-feature = ["new", "main"]
