@@ -10,15 +10,16 @@ set -euo pipefail
 
 # Script metadata
 readonly SCRIPT_NAME="protect-secrets"
-readonly SCRIPT_VERSION="2.0.0"
+readonly SCRIPT_VERSION="2.0.1"
 
-# Configuration - Enhanced patterns with more comprehensive coverage
+# Configuration - More precise patterns to avoid false positives
 readonly PROTECTED_PATTERNS=(
 	# Environment and config files
 	"*.env"
 	"*.env.*"
 	"*.environment"
-	".env*"
+	".env"
+	".env.*"
 	
 	# Secret files
 	"*.secret"
@@ -34,28 +35,25 @@ readonly PROTECTED_PATTERNS=(
 	"*.cer"
 	"*.der"
 	"*.csr"
-	"*.p7b"
-	"*.p7c"
-	"*.spc"
 	"*.keystore"
 	"*.jks"
 	"*.truststore"
 	
-	# SSH keys
-	"*_rsa"
-	"*_dsa"
-	"*_ecdsa"
-	"*_ed25519"
-	"id_*"
+	# SSH keys (more specific patterns)
+	"id_rsa"
+	"id_dsa" 
+	"id_ecdsa"
+	"id_ed25519"
 	"*.pub"
 	
-	# Cloud provider credentials
+	# Cloud provider credentials (specific files)
 	".aws/credentials"
 	".aws/config"
 	".azure/credentials"
 	".gcloud/credentials"
 	"gcp-credentials.json"
-	"service-account*.json"
+	"service-account.json"
+	"service-account-*.json"
 	
 	# Container and orchestration secrets
 	".docker/config.json"
@@ -77,30 +75,23 @@ readonly PROTECTED_PATTERNS=(
 	# Database credentials
 	".pgpass"
 	".my.cnf"
-	"database.yml"
-	
-	# CI/CD secrets
-	".travis.yml"
-	".github/secrets"
-	"gitlab-ci.yml"
 	
 	# Password managers and keychains
 	"*.kdbx"
 	"*.kdb"
-	"login.keychain*"
+	"login.keychain"
+	"login.keychain-db"
 	
 	# Terraform and infrastructure
 	"terraform.tfvars"
 	"*.tfvars"
-	".terraform/terraform.tfstate"
 	
-	# Application-specific
+	# Files with common secret names in them
 	"*password*"
 	"*credential*"
 	"*apikey*"
 	"*api_key*"
-	"*token*"
-	"*bearer*"
+	"*secret*"
 )
 
 readonly PROTECTED_DIRECTORIES=(
@@ -124,9 +115,9 @@ readonly PROTECTED_DIRECTORIES=(
 	".private"
 )
 
-# Enhanced secret content patterns with better regex
+# Enhanced secret content patterns
 readonly SECRET_CONTENT_PATTERNS=(
-	# Generic secrets
+	# Generic secrets (more specific)
 	'(password|pwd|pass)\s*[:=]\s*["\047][^"\047]{8,}["\047]'
 	'(api[_-]?key|apikey)\s*[:=]\s*["\047][A-Za-z0-9+/]{16,}["\047]'
 	'(secret|token)\s*[:=]\s*["\047][A-Za-z0-9+/=]{16,}["\047]'
@@ -134,7 +125,6 @@ readonly SECRET_CONTENT_PATTERNS=(
 	
 	# Cloud provider patterns
 	'AKIA[0-9A-Z]{16}'  # AWS Access Key
-	'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'  # UUID format
 	'sk-[A-Za-z0-9]{48}'  # OpenAI API key
 	'ghp_[A-Za-z0-9]{36}'  # GitHub Personal Access Token
 	'gho_[A-Za-z0-9]{36}'  # GitHub OAuth token
@@ -205,26 +195,32 @@ is_protected_file() {
 	local dirname_file
 	dirname_file=$(dirname "$file_path")
 
-	debug "Checking protection patterns for: $file_path"
+	debug "Checking protection patterns for: $file_path (basename: $basename_file)"
 
-	# Check against protected patterns
+	# Check against protected patterns with more precise matching
 	for pattern in "${PROTECTED_PATTERNS[@]}"; do
-		# Use case-insensitive matching for better coverage
-		if [[ "${basename_file,,}" == "${pattern,,}" ]] || [[ "${file_path,,}" == *"${pattern,,}"* ]]; then
-			debug "Matched pattern: $pattern"
+		# Use bash pattern matching - only match if the pattern actually fits
+		if [[ "$basename_file" == $pattern ]]; then
+			debug "Matched basename pattern: $pattern"
+			return 0 # File is protected
+		fi
+		
+		# Check if pattern contains wildcards and matches appropriately
+		if [[ "$pattern" == *.* ]] && [[ "$basename_file" == $pattern ]]; then
+			debug "Matched wildcard pattern: $pattern"
 			return 0 # File is protected
 		fi
 	done
 
-	# Check if file is in a protected directory
+	# Check if file is in a protected directory (exact matches only)
 	for dir in "${PROTECTED_DIRECTORIES[@]}"; do
-		if [[ "$file_path" == *"/$dir/"* ]] || [[ "$file_path" == "$dir/"* ]] || [[ "$dirname_file" == *"$dir"* ]]; then
+		if [[ "$file_path" == "$dir/"* ]] || [[ "$dirname_file" == "$dir" ]]; then
 			debug "Matched protected directory: $dir"
 			return 0 # File is in protected directory
 		fi
 	done
 
-	debug "No protection patterns matched"
+	debug "No protection patterns matched for: $file_path"
 	return 1 # File is not protected
 }
 
@@ -246,7 +242,12 @@ check_file_content() {
 
 	# Check file size to avoid scanning huge files
 	local file_size
-	file_size=$(stat -f%z "$file_path" 2>/dev/null || stat -c%s "$file_path" 2>/dev/null || echo "0")
+	if command -v stat >/dev/null 2>&1; then
+		file_size=$(stat -f%z "$file_path" 2>/dev/null || stat -c%s "$file_path" 2>/dev/null || echo "0")
+	else
+		file_size=$(wc -c < "$file_path" 2>/dev/null || echo "0")
+	fi
+	
 	if [[ "$file_size" -gt "$CLAUDE_SECRETS_MAX_FILE_SIZE" ]]; then
 		warn "File too large for content scanning ($file_size bytes): $file_path"
 		return 1
@@ -258,10 +259,12 @@ check_file_content() {
 	local content
 	content=$(head -c "$CLAUDE_SECRETS_MAX_FILE_SIZE" "$file_path" 2>/dev/null || true)
 
-	# Skip binary files
-	if [[ -n "$content" ]] && file "$file_path" 2>/dev/null | grep -q "binary"; then
-		debug "Skipping binary file: $file_path"
-		return 1
+	# Skip binary files (check if file command exists first)
+	if command -v file >/dev/null 2>&1; then
+		if [[ -n "$content" ]] && file "$file_path" 2>/dev/null | grep -q "binary"; then
+			debug "Skipping binary file: $file_path"
+			return 1
+		fi
 	fi
 
 	# Check against secret patterns
