@@ -1,10 +1,68 @@
+[user]
+name = "Codegen Agent"
+email = "agent@codegen.com"
+
+[ui]
+default-command = "log"
+diff.tool = "builtin"
+editor = "code --wait"  # Use VS Code as editor in Codegen sandboxes
+pager = "less -FRX"
+color = "always"
+
 [git]
+auto-local-bookmark = true  # Automatically import remote bookmarks
 fetch = "origin"
 push = "origin"
-auto-local-bookmark = true  # Import all remote bookmarks
 
 [aliases]
-# Helpful aliases for codegen workflow
+# Codegen-specific aliases for AI agent workflows
 sync = ["git", "fetch", "--all-remotes"]
 push-change = ["git", "push", "--change"]
 new-feature = ["new", "main"]
+quick-commit = ["commit", "-m"]
+ai-branch = ["bookmark", "create"]
+review-ready = ["git", "push", "--allow-new"]
+
+# Standard workflow aliases
+st = ["status"]
+sh = ["show"]
+lg = ["log", "--graph"]
+co = ["checkout"]  # Git-like checkout for familiarity
+
+# Useful for reviewing AI changes
+mine = ["log", "-r", "mine() & bookmarks() & ~remote_bookmarks()"]
+pending = ["log", "-r", "bookmarks() & ~remote_bookmarks()"]
+recent = ["log", "--limit", "10"]
+
+[revset-aliases]
+# Revset aliases for common Codegen workflows
+"ai-changes" = "mine() & bookmarks() & ~remote_bookmarks()"
+"pending-review" = "bookmarks() & ~remote_bookmarks()"
+"local-work" = "remote_bookmarks()..@"
+
+[template-aliases]
+# Custom templates for better AI workflow visibility
+"ai_format" = '''
+change_id.short() ++ " " ++ if(description,
+  description.first_line(),
+  "(no description set)"
+) ++ if(bookmarks, " " ++ bookmarks.join(" "))
+'''
+
+[colors]
+# Color scheme optimized for terminal output
+"working_copy" = "green bold"
+"bookmark" = "magenta"
+"tag" = "yellow"
+"commit_id" = "blue"
+"change_id" = "cyan"
+
+[diff]
+# Diff settings for code review
+format = "colored-words"
+context = 3
+
+[snapshot]
+# Automatic snapshotting for safety
+auto-track = "all()"
+max-new-file-size = "1MiB"
