@@ -26,6 +26,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  id-token: write  # Added for FlakeHub Cache
 
 jobs:
   dependency-update:
@@ -38,14 +39,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      # MODERNIZED: Use DeterminateSystems actions
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: DeterminateSystems/determinate-nix-action@v3
+
+      - name: Setup FlakeHub Cache
+        uses: DeterminateSystems/flakehub-cache-action@v2
+
+      # ENHANCED: Add flake health check before updates
+      - name: Check current flake health
+        uses: DeterminateSystems/flake-checker-action@v2
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.31.0/install
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            substituters = https://cache.nixos.org/ https://nix-community.cachix.org
-            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+          fail-mode: false
+        continue-on-error: true
 
       - name: Configure Git
         run: |
@@ -140,6 +146,14 @@ jobs:
             echo "changes_detected=true" >> "$GITHUB_OUTPUT"
             echo "Changes detected in flake.lock"
           fi
+
+      # ENHANCED: Add flake health check after updates
+      - name: Check updated flake health
+        if: steps.update_inputs.outputs.changes_detected == 'true'
+        uses: DeterminateSystems/flake-checker-action@v2
+        with:
+          fail-mode: false
+        continue-on-error: true
 
       - name: Generate update summary
         if: steps.update_inputs.outputs.changes_detected == 'true'
@@ -317,7 +331,7 @@ jobs:
             automated
             ${{ steps.test_build.outputs.test_result == 'failed' && 'build-failed' || '' }}
             ${{ steps.security_scan.outputs.critical_vulnerabilities != '0' && steps.security_scan.outputs.critical_vulnerabilities != 'unknown' && 'security-issues' || '' }}
-          draft: ${{ steps.test_build.outputs.test_result == 'failed' }}
+          draft: ${{ steps.test_build.outputs.test_result == 'failed' }}read from https://github.com/marketplace/actions/update-nix-flake-lock
 
       - name: Handle update failure
         if: steps.update_inputs.outputs.changes_detected == 'true' && steps.test_build.outputs.test_result == 'failed'
