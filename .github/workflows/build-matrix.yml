@@ -156,7 +156,7 @@ jobs:
           echo "🔨 Generating build matrix..."
           
           # Try custom matrix first
-          if matrix=$(nix eval --json .#githubActions.matrix --option restrict-eval true 2>/dev/null); then
+          if matrix=$(nix eval --json .#githubActions.matrix 2>/dev/null); then
             echo "✅ Using custom matrix from flake"
             echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
             echo "has-builds=true" >> "$GITHUB_OUTPUT"
@@ -164,7 +164,7 @@ jobs:
             echo "📋 Generating matrix from packages..."
             
             # Create secure matrix from available packages
-            nix flake show --json --option restrict-eval true > flake-info.json
+            nix flake show --json > flake-info.json
             
             matrix_entries=""
             while read -r system; do
@@ -246,7 +246,6 @@ jobs:
         env:
           NIX_CONFIG: |
             extra-experimental-features = nix-command flakes
-            restrict-eval = true
             sandbox = true
             max-jobs = auto
         run: |
@@ -254,7 +253,6 @@ jobs:
           
           build_args=(
             "--print-build-logs"
-            "--option" "restrict-eval" "true"
             "--option" "sandbox" "true"
             "--option" "max-silent-time" "600"
             "--option" "timeout" "1800"

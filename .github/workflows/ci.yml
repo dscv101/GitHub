@@ -14,10 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # SECURITY: Restrict Nix evaluation
+  # SECURITY: Secure Nix evaluation
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
-    restrict-eval = true
     sandbox = true
     max-jobs = auto
 
@@ -33,7 +32,13 @@ jobs:
       config-exists: ${{ steps.check-config.outputs.exists }}
       has-checks: ${{ steps.check-config.outputs.has-checks }}
     steps:
-uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
@@ -56,12 +61,12 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
           fi
           
           # Check for NixOS configuration
-          if nix eval --json .#nixosConfigurations --option restrict-eval true >/dev/null 2>&1; then
+          if nix eval --json .#nixosConfigurations >/dev/null 2>&1; then
             echo "config-exists=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
             
             # Try to build system configuration
-            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --option restrict-eval true --dry-run; then
+            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
               echo "✅ System configuration is buildable"
             else
               echo "❌ System configuration build failed"
@@ -73,7 +78,7 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
           fi
           
           # Check for validation targets
-          if nix eval --json .#checks.x86_64-linux --option restrict-eval true >/dev/null 2>&1; then
+          if nix eval --json .#checks.x86_64-linux >/dev/null 2>&1; then
             echo "has-checks=true" >> "$GITHUB_OUTPUT"
             echo "✅ Validation checks available"
           else
@@ -131,7 +136,7 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
           echo "🎨 Checking code formatting..."
           
           # Try treefmt first (modern approach)
-          if nix build .#formatter --option restrict-eval true 2>/dev/null; then
+          if nix build .#formatter 2>/dev/null; then
             echo "Using treefmt formatter"
             ./result/bin/treefmt --check --no-cache .
           elif nix run nixpkgs#treefmt -- --check --no-cache . 2>/dev/null; then
@@ -220,7 +225,6 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
           nix build \
             .#nixosConfigurations.blazar.config.system.build.toplevel \
             --show-trace \
-            --option restrict-eval true \
             --option sandbox true \
             --option max-silent-time 600 \
             --option timeout 1800
@@ -249,7 +253,7 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
           echo "✅ Running validation checks..."
           
           # Run all available checks
-          nix build .#checks.x86_64-linux --show-trace --option restrict-eval true
+          nix build .#checks.x86_64-linux --show-trace
           
           echo "✅ All checks passed"
 
@@ -273,7 +277,7 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
           echo "🔍 Running security scan..."
           
           # Build system for scanning
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel --option restrict-eval true
+          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
           system_path=$(readlink -f result)
           
           # Quick vulnerability check
