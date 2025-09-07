@@ -88,10 +88,15 @@ jobs:
           
           security_issues=0
           
-          # Check for unsafe Nix features
-          if grep -r "allowUnfree\|allowBroken\|allowInsecure" . --include="*.nix" --exclude-dir=".git"; then
+          # Check for truly unsafe Nix features (allowUnfree is common and acceptable)
+          if grep -r "allowBroken\|allowInsecure" . --include="*.nix" --exclude-dir=".git"; then
             echo "⚠️ Unsafe Nix features detected"
             ((security_issues++))
+          fi
+          
+          # Note: allowUnfree is acceptable for systems that need proprietary software
+          if grep -r "allowUnfree" . --include="*.nix" --exclude-dir=".git" >/dev/null; then
+            echo "ℹ️ allowUnfree detected (acceptable for proprietary software support)"
           fi
           
           # Validate flake inputs are from trusted sources
