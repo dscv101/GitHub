@@ -62,7 +62,7 @@ jobs:
           echo "🔍 Validating flake and configuration..."
           
           # Check flake validity
-          if ! nix flake check --show-trace --option restrict-eval true; then
+          if ! nix flake check --show-trace; then
             echo "❌ Flake check failed"
             exit 1
           fi
