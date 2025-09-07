@@ -41,6 +41,8 @@ jobs:
       # SECURITY: Pin to specific version for supply chain security
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
+        with:
+          kvm: false
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -150,6 +152,8 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@f37b6c3b885b7ebe36fed7bb3b3b7ce8b0fe3c82 # v3.5.2
+        with:
+          kvm: false
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
@@ -233,6 +237,8 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@f37b6c3b885b7ebe36fed7bb3b3b7ce8b0fe3c82 # v3.5.2
+        with:
+          kvm: false
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
