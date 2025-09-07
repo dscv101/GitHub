@@ -51,8 +51,8 @@ jobs:
           kvm: false
           # Additional configuration to ensure no sudo requirements
           init: none
-          # Disable systemd integration to avoid permission issues
-          systemd: false
+          # Force disable systemd integration to avoid permission issues
+          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -157,8 +157,8 @@ jobs:
           kvm: false
           # Additional configuration to ensure no sudo requirements
           init: none
-          # Disable systemd integration to avoid permission issues
-          systemd: false
+          # Force disable systemd integration to avoid permission issues
+          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -263,8 +263,8 @@ jobs:
           kvm: false
           # Additional configuration to ensure no sudo requirements
           init: none
-          # Disable systemd integration to avoid permission issues
-          systemd: false
+          # Force disable systemd integration to avoid permission issues
+          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -314,8 +314,8 @@ jobs:
           kvm: false
           # Additional configuration to ensure no sudo requirements
           init: none
-          # Disable systemd integration to avoid permission issues
-          systemd: false
+          # Force disable systemd integration to avoid permission issues
+          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -357,8 +357,8 @@ jobs:
           kvm: false
           # Additional configuration to ensure no sudo requirements
           init: none
-          # Disable systemd integration to avoid permission issues
-          systemd: false
+          # Force disable systemd integration to avoid permission issues
+          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
