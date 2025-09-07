@@ -530,7 +530,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v20
+      - uses: DeterminateSystems/determinate-nix-action@v3.5.2
       - name: Test devenv shell
         run: |
           nix develop --command echo "devenv works"

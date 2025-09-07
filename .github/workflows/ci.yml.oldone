@@ -1,9 +1,12 @@
-name: CI
+# DEPRECATED: This file has been replaced by ci.yml
+# This file is kept for reference only and should not be used
+# The new ci.yml uses DeterminateSystems/determinate-nix-action instead of cachix/install-nix-action
+
+name: CI-DEPRECATED-DO-NOT-USE
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
+  # Disabled to prevent conflicts with the main ci.yml
+  workflow_dispatch:
 
 permissions:
   contents: read

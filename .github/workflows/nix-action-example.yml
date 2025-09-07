@@ -1,0 +1,50 @@
+# Example of correct Nix action usage for GitHub Actions
+# This file demonstrates the modern, recommended approach for using Nix in CI
+
+name: Nix Action Example
+
+on:
+  workflow_dispatch:  # Manual trigger only - this is just an example
+
+permissions:
+  contents: read
+
+jobs:
+  nix-example:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # ✅ CORRECT: Use DeterminateSystems/determinate-nix-action
+      # This is the modern, recommended Nix installer for GitHub Actions
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@v3.5.2
+        # No additional parameters needed - it handles everything automatically
+
+      # ✅ OPTIONAL: Add Magic Nix Cache for faster builds
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v13
+
+      # ✅ Example Nix commands that work with the modern installer
+      - name: Test Nix installation
+        run: |
+          echo "Testing Nix installation..."
+          nix --version
+          nix flake check --show-trace || echo "No flake.nix found"
+          echo "✅ Nix is working correctly!"
+
+# ❌ DEPRECATED: Do NOT use cachix/install-nix-action
+# The old action has issues with:
+# - github_token parameter conflicts
+# - sudo permission requirements in CI
+# - Outdated installation methods
+#
+# If you see errors like:
+# "Warning: Unexpected input(s) 'github_token', valid inputs are..."
+# "sudo: a terminal is required to read the password"
+#
+# Replace with DeterminateSystems/determinate-nix-action as shown above
