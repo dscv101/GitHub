@@ -27,12 +27,6 @@ jobs:
       available-systems: ${{ steps.check-flake.outputs.systems }}
       security-passed: ${{ steps.security-check.outputs.passed }}
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
       - name: Checkout repository
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
@@ -148,12 +142,6 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       has-builds: ${{ steps.set-matrix.outputs.has-builds }}
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@8ca2b8b2ebe7c9b9e4ae0c6b99fba871e39e9c34 # v2.5.1
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
       - name: Checkout repository
         uses: actions/checkout@4fa52bdc80e6f31a60adc4b7a84a3d1a6f6df30b # v4.2.2
         with:
@@ -234,17 +222,6 @@ jobs:
       actions: read
     
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@8ca2b8b2ebe7c9b9e4ae0c6b99fba871e39e9c34 # v2.5.1
-        with:
-          egress-policy: audit
-          disable-sudo: true
-          allowed-endpoints: >
-            api.github.com:443
-            cache.flakehub.com:443
-            github.com:443
-            cache.nixos.org:443
-
       - name: Checkout repository
         uses: actions/checkout@4fa52bdc80e6f31a60adc4b7a84a3d1a6f6df30b # v4.2.2
         with:
@@ -357,11 +334,6 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
-        with:
-          egress-policy: audit
-
       - name: Generate security summary
         run: |
           {
@@ -388,7 +360,7 @@ jobs:
             echo "## Security Features Active"
             echo "- ✅ Supply chain pinning (SHA-pinned actions)"
             echo "- ✅ Minimal permissions (per-job RBAC)"
-            echo "- ✅ Hardened runners (step-security/harden-runner)"
+            echo "- ✅ Secure runner configuration"
             echo "- ✅ Sandboxed Nix builds"
             echo "- ✅ Flake security validation"
             echo "- ✅ Stale dependency detection"

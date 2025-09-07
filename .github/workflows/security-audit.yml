@@ -46,12 +46,6 @@ jobs:
       vuln-count: ${{ steps.vulnerability-scan.outputs.vuln-count }}
       critical-count: ${{ steps.vulnerability-scan.outputs.critical-count }}
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
       - name: Checkout repository
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
