@@ -51,7 +51,6 @@ change_id.short() ++ " " ++ if(description,
 
 [colors]
 # Color scheme optimized for terminal output
-[colors]
 "working_copy" = { fg = "green", bold = true }
 "bookmark" = { fg = "magenta" }
 "commit_id" = { fg = "blue" }
