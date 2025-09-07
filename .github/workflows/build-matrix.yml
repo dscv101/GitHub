@@ -28,7 +28,7 @@ jobs:
       security-passed: ${{ steps.security-check.outputs.passed }}
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
         with:
           egress-policy: audit
           disable-sudo: true
@@ -149,7 +149,7 @@ jobs:
       has-builds: ${{ steps.set-matrix.outputs.has-builds }}
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8ca2b8b2ebe7c9b9e4ae0c6b99fba871e39e9c34 # v2.5.1
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.5.1
         with:
           egress-policy: audit
           disable-sudo: true
@@ -235,7 +235,7 @@ jobs:
     
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8ca2b8b2ebe7c9b9e4ae0c6b99fba871e39e9c34 # v2.5.1
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.5.1
         with:
           egress-policy: audit
           disable-sudo: true
