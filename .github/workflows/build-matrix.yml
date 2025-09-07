@@ -28,13 +28,13 @@ jobs:
       security-passed: ${{ steps.security-check.outputs.passed }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
       # SECURITY: Pin to specific version for supply chain security
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@v3.11.1
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
@@ -135,12 +135,12 @@ jobs:
       has-builds: ${{ steps.set-matrix.outputs.has-builds }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@4fa52bdc80e6f31a60adc4b7a84a3d1a6f6df30b # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.2.2
         with:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@v3.11.1
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
@@ -207,12 +207,12 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@4fa52bdc80e6f31a60adc4b7a84a3d1a6f6df30b # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.2.2
         with:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@v3.11.1
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
