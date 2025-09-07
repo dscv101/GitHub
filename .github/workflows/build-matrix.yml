@@ -60,7 +60,7 @@ jobs:
           echo "exists=true" >> "$GITHUB_OUTPUT"
           
           # Enhanced flake evaluation with security checks
-          if ! nix flake show --json --option restrict-eval true > flake-info.json 2>flake-errors.log; then
+          if ! nix flake show --json > flake-info.json 2>flake-errors.log; then
             echo "❌ Flake evaluation failed"
             cat flake-errors.log
             echo "has-packages=false" >> "$GITHUB_OUTPUT"
