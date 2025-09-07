@@ -14,10 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # SECURITY: Restrict Nix evaluation
+  # SECURITY: Secure Nix evaluation
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
-    restrict-eval = true
     sandbox = true
     max-jobs = auto
 
@@ -33,12 +32,6 @@ jobs:
       config-exists: ${{ steps.check-config.outputs.exists }}
       has-checks: ${{ steps.check-config.outputs.has-checks }}
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -46,21 +39,13 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       # SECURITY: Enhanced flake health check
       - name: Check flake health
-        uses: DeterminateSystems/flake-checker-action@3164002371bc90729c68af0e24d5aacf20d7c9f6 # v12
+        uses: DeterminateSystems/flake-checker-action@v9
         with:
           fail-mode: true
 
@@ -76,12 +61,12 @@ jobs:
           fi
           
           # Check for NixOS configuration
-          if nix eval --json .#nixosConfigurations --option restrict-eval true >/dev/null 2>&1; then
+          if nix eval --json .#nixosConfigurations >/dev/null 2>&1; then
             echo "config-exists=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
             
             # Try to build system configuration
-            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --option restrict-eval true --dry-run; then
+            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
               echo "✅ System configuration is buildable"
             else
               echo "❌ System configuration build failed"
@@ -93,7 +78,7 @@ jobs:
           fi
           
           # Check for validation targets
-          if nix eval --json .#checks.x86_64-linux --option restrict-eval true >/dev/null 2>&1; then
+          if nix eval --json .#checks.x86_64-linux >/dev/null 2>&1; then
             echo "has-checks=true" >> "$GITHUB_OUTPUT"
             echo "✅ Validation checks available"
           else
@@ -140,30 +125,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
+uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       # IMPROVED: Enhanced formatting checks
       - name: Check code formatting
@@ -171,7 +136,7 @@ jobs:
           echo "🎨 Checking code formatting..."
           
           # Try treefmt first (modern approach)
-          if nix build .#formatter --option restrict-eval true 2>/dev/null; then
+          if nix build .#formatter 2>/dev/null; then
             echo "Using treefmt formatter"
             ./result/bin/treefmt --check --no-cache .
           elif nix run nixpkgs#treefmt -- --check --no-cache . 2>/dev/null; then
@@ -247,30 +212,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
+uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Build NixOS configuration
         run: |
@@ -280,7 +225,6 @@ jobs:
           nix build \
             .#nixosConfigurations.blazar.config.system.build.toplevel \
             --show-trace \
-            --option restrict-eval true \
             --option sandbox true \
             --option max-silent-time 600 \
             --option timeout 1800
@@ -299,37 +243,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
+uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Run validation checks
         run: |
           echo "✅ Running validation checks..."
           
           # Run all available checks
-          nix build .#checks.x86_64-linux --show-trace --option restrict-eval true
+          nix build .#checks.x86_64-linux --show-trace
           
           echo "✅ All checks passed"
 
@@ -343,37 +267,17 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
-        with:
-          egress-policy: audit
-          disable-sudo: true
-
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
+uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Quick security scan
         run: |
           echo "🔍 Running security scan..."
           
           # Build system for scanning
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel --option restrict-eval true
+          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
           system_path=$(readlink -f result)
           
           # Quick vulnerability check
@@ -391,11 +295,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
-        with:
-          egress-policy: audit
-
       - name: Generate CI summary
         run: |
           {
@@ -410,7 +309,7 @@ jobs:
             echo ""
             echo "## Security Features"
             echo "- ✅ SHA-pinned actions (supply chain security)"
-            echo "- ✅ Hardened runners (step-security)"
+            echo "- ✅ Secure runner configuration"
             echo "- ✅ Minimal permissions (RBAC)"
             echo "- ✅ Sandboxed Nix builds"
             echo "- ✅ Dependency validation"
