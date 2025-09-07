@@ -34,7 +34,7 @@ jobs:
 
       # SECURITY: Pin to specific version for supply chain security
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@v14
+        uses: DeterminateSystems/determinate-nix-action@v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
@@ -140,7 +140,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@v14
+        uses: DeterminateSystems/determinate-nix-action@v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
@@ -212,7 +212,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@v14
+        uses: DeterminateSystems/determinate-nix-action@v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
