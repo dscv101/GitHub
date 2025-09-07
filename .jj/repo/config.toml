@@ -10,9 +10,9 @@ pager = "less -FRX"
 color = "always"
 
 [git]
-auto-local-bookmark = true  # Automatically import remote bookmarks
 fetch = "origin"
 push = "origin"
+auto-local-bookmark = true
 
 [aliases]
 # Codegen-specific aliases for AI agent workflows
@@ -51,11 +51,11 @@ change_id.short() ++ " " ++ if(description,
 
 [colors]
 # Color scheme optimized for terminal output
-"working_copy" = "green bold"
-"bookmark" = "magenta"
-"tag" = "yellow"
-"commit_id" = "blue"
-"change_id" = "cyan"
+[colors]
+"working_copy" = { fg = "green", bold = true }
+"bookmark" = { fg = "magenta" }
+"commit_id" = { fg = "blue" }
+"change_id" = { fg = "cyan" }
 
 [diff]
 # Diff settings for code review
