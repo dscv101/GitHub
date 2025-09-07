@@ -40,14 +40,6 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -141,14 +133,6 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -242,14 +226,6 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -288,14 +264,6 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -326,14 +294,6 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
-        with:
-          # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
-          kvm: false
-          # Use linux-multi planner with no init to avoid sudo requirements
-          planner: linux-multi
-          init: none
-          # Force disable systemd integration to avoid permission issues
-          force-no-systemd: true
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
