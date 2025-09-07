@@ -34,14 +34,14 @@ jobs:
 
       # SECURITY: Pin to specific version for supply chain security
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
+        uses: DeterminateSystems/determinate-nix-action@v14
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       # SECURITY: Enhanced flake health check
       - name: Check flake health (security)
-        uses: DeterminateSystems/flake-checker-action@3164002371bc90729c68af0e24d5aacf20d7c9f6 # v12
+        uses: DeterminateSystems/flake-checker-action@v9
         with:
           fail-mode: true
 
@@ -140,10 +140,10 @@ jobs:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
+        uses: DeterminateSystems/determinate-nix-action@v14
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Generate secure build matrix
         id: set-matrix
@@ -212,10 +212,10 @@ jobs:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
+        uses: DeterminateSystems/determinate-nix-action@v14
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@3b4b66b3a0b6b61ce03e1a5d19c3b3b7c4d5b9e9 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Verify build compatibility
         id: compatibility
