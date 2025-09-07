@@ -40,7 +40,7 @@ jobs:
 
       # SECURITY: Pin to specific version for supply chain security
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
         with:
           # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
           kvm: false
@@ -160,7 +160,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
         with:
           # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
           kvm: false
@@ -251,7 +251,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@e9bfc9148566ca239aef4f5cb968674de15c3c20 # v3.5.2
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
         with:
           # Disable KVM to avoid sudo requirements (compatible with harden-runner disable-sudo)
           kvm: false
