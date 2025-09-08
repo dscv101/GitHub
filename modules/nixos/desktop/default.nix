@@ -3,6 +3,7 @@
     ./niri.nix
     ./fonts.nix
     ./wayland.nix
+    ./sddm.nix
   ];
 
   # Common desktop applications
