@@ -9,7 +9,7 @@ Refactored to use a modular architecture inspired by [Isabel Roses' dotfiles](ht
 - **Modular Architecture**: Clean separation of concerns with organized modules
 - **Flake-parts Integration**: Leverages flake-parts for better organization
 - **Wayland/GBM** with NVIDIA (closed driver), Niri compositor, greetd+tuigreet login
-- **Home Manager** user `dscv`: zsh + Starship, VS Code (official), Ghostty, Waybar, Mako, fuzzel
+- **Home Manager** user `dscv`: zsh + Starship, VS Code (official), Ghostty, Enhanced Waybar, Mako, fuzzel
 - **Dev toolchain**: uv/ruff/mypy/pytest, DuckDB + extensions, Postgres/SQLite clients, direnv+devenv
 - **Secrets** via **sops-nix**; **Tailscale** auto-join (SSH enabled); MotherDuck token ready
 - **Disk layout** via **Disko**: EFI 1.5GiB → LUKS2 → Btrfs (@, @home, @nix, @log, @persist, @snapshots)
@@ -41,6 +41,8 @@ Refactored to use a modular architecture inspired by [Isabel Roses' dotfiles](ht
 │       ├── development/      # Development tools
 │       ├── desktop/          # Desktop applications
 │       └── theming/          # GTK themes and appearance
+├── pkgs/                        # Custom packages
+│   └── sddm-themes/            # SDDM theme packages
 ├── systems/
 │   ├── default.nix           # System definitions
 │   └── blazar/               # Host-specific configuration
@@ -183,6 +185,24 @@ This configuration was refactored from a monolithic structure to a modular one:
 - **Better Organization**: Related configuration is grouped together
 - **Improved Reusability**: Modules can be shared between systems
 - **Enhanced Testing**: Individual modules can be tested independently
+
+## Themes
+
+This configuration includes support for custom themes, particularly the beautiful Astronaut SDDM theme.
+
+### SDDM Astronaut Theme
+
+Enable the space-themed login screen:
+
+```nix
+{
+  # Enable SDDM with Astronaut theme
+  desktop.sddm.enable = true;
+  desktop.sddm.enableAstronautTheme = true;
+}
+```
+
+See [docs/themes.md](docs/themes.md) for detailed theme configuration and customization options.
 
 ## Notes
 
