@@ -1,9 +1,9 @@
 _: {
-  perSystem = _: {
+  perSystem = {pkgs, ...}: {
     packages = {
       # Custom packages can be defined here
-      # Example:
-      # my-custom-package = pkgs.callPackage ./my-custom-package.nix { };
+      # SDDM Themes
+      sddm-astronaut-theme = pkgs.callPackage ../../../pkgs/sddm-themes/astronaut.nix { };
     };
   };
 }
