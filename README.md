@@ -9,7 +9,7 @@ Refactored to use a modular architecture inspired by [Isabel Roses' dotfiles](ht
 - **Modular Architecture**: Clean separation of concerns with organized modules
 - **Flake-parts Integration**: Leverages flake-parts for better organization
 - **Wayland/GBM** with NVIDIA (closed driver), Niri compositor, greetd+tuigreet login
-- **Home Manager** user `dscv`: zsh + Starship, VS Code (official), Ghostty, Waybar, Mako, fuzzel
+- **Home Manager** user `dscv`: zsh + Starship, VS Code (official), Ghostty, Enhanced Waybar, Mako, fuzzel
 - **Dev toolchain**: uv/ruff/mypy/pytest, DuckDB + extensions, Postgres/SQLite clients, direnv+devenv
 - **Secrets** via **sops-nix**; **Tailscale** auto-join (SSH enabled); MotherDuck token ready
 - **Disk layout** via **Disko**: EFI 1.5GiB → LUKS2 → Btrfs (@, @home, @nix, @log, @persist, @snapshots)
