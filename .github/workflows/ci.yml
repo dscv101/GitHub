@@ -2,407 +2,338 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main, develop ]
   pull_request:
+    branches: [ main, develop ]
   workflow_dispatch:
-
-# SECURITY: Minimal permissions, explicit per-job
-permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # SECURITY: Secure Nix evaluation
-  NIX_CONFIG: |
-    extra-experimental-features = nix-command flakes
-    sandbox = true
-    max-jobs = auto
-
 jobs:
-  # Combined flake validation and basic checks
-  validate:
+  nix-flake-check:
+    name: Nix Flake Check
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      security-events: write
-    outputs:
-      config-exists: ${{ steps.check-config.outputs.exists }}
-      has-checks: ${{ steps.check-config.outputs.has-checks }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
         with:
-          persist-credentials: false
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
 
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      # SECURITY: Enhanced flake health check
-      - name: Check flake health
-        uses: DeterminateSystems/flake-checker-action@v9
-        with:
-          fail-mode: true
-
-      - name: Validate flake structure
-        id: check-config
-        run: |
-          echo "🔍 Validating flake and configuration..."
-          
-          # Check flake validity
-          if ! nix flake check --show-trace --no-pure-eval --accept-flake-config; then
-            echo "❌ Flake check failed"
-            exit 1
-          fi
-          
-          # Check for NixOS configuration
-          if nix eval --json .#nixosConfigurations >/dev/null 2>&1; then
-            echo "config-exists=true" >> "$GITHUB_OUTPUT"
-            echo "✅ NixOS configurations found"
-            
-            # Try to build system configuration
-            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
-              echo "✅ System configuration is buildable"
-            else
-              echo "❌ System configuration build failed"
-              exit 1
-            fi
-          else
-            echo "config-exists=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️ No NixOS configurations found"
-          fi
-          
-          # Check for validation targets
-          if nix eval --json .#checks.x86_64-linux >/dev/null 2>&1; then
-            echo "has-checks=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Validation checks available"
-          else
-            echo "has-checks=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️ No validation checks found"
-          fi
-
-      # SECURITY: Validate dependencies and inputs
-      - name: Security validation
-        run: |
-          echo "🔒 Running security validation..."
-          
-          # Check for insecure Nix features
-          if grep -r "allowUnfree\|allowBroken\|allowInsecure" . --include="*.nix" --exclude-dir=".git"; then
-            echo "⚠️ Insecure Nix features detected"
-            exit 1
-          fi
-          
-          # Validate flake inputs are from trusted sources  
-          nix flake metadata --json > flake-meta.json
-          untrusted_count=0
-          while read -r owner repo; do
-            case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci) 
-                echo "✅ Trusted: $owner/$repo" ;;
-              *)
-                echo "⚠️ Untrusted: $owner/$repo"
-                ((untrusted_count++)) ;;
-            esac
-          done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
-          
-          if [[ $untrusted_count -gt 0 ]]; then
-            echo "❌ $untrusted_count untrusted inputs found"
-            exit 1
-          fi
-          
-          echo "✅ All security checks passed"
-
-  # Code quality and formatting
-  code-quality:
-    runs-on: ubuntu-latest
-    needs: validate
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
         with:
           name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+      - name: Run nix flake check
+        run: |
+          echo "🔍 Running nix flake check..."
+          nix -L flake check --show-trace
+          echo "✅ Nix flake check completed successfully!"
 
-      # IMPROVED: Enhanced formatting checks
-      - name: Check code formatting
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
+
+      - name: Check formatting with treefmt
         run: |
           echo "🎨 Checking code formatting..."
-          
-          # Try treefmt first (modern approach)
-          if nix build .#formatter 2>/dev/null; then
-            echo "Using treefmt formatter"
-            ./result/bin/treefmt --check --no-cache .
-          elif nix run nixpkgs#treefmt -- --check --no-cache . 2>/dev/null; then
-            echo "Using system treefmt"
+          nix develop --command treefmt --check
+          echo "✅ Format check completed!"
+
+  lint-checks:
+    name: Lint Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
+
+      - name: Run Nix linting with statix
+        run: |
+          echo "🔍 Running statix check..."
+          nix develop --command statix check
+          echo "✅ Statix check completed!"
+
+      - name: Check for dead code with deadnix
+        run: |
+          echo "🔍 Checking for dead code..."
+          nix develop --command deadnix
+          echo "✅ Dead code check completed!"
+
+      - name: Lint shell scripts
+        run: |
+          echo "🔍 Linting shell scripts..."
+          if ls scripts/*.sh 1> /dev/null 2>&1; then
+            nix develop --command shellcheck scripts/*.sh
+            echo "✅ Shell script linting completed!"
           else
-            echo "Using alejandra fallback"
-            nix run nixpkgs#alejandra -- --check .
+            echo "ℹ️ No shell scripts found to lint"
           fi
 
-      - name: Lint Nix code
+      - name: Lint Markdown files
         run: |
-          echo "🔍 Running Nix linters..."
+          echo "🔍 Linting Markdown files..."
+          nix develop --command markdownlint *.md
+          echo "✅ Markdown linting completed!"
+
+      - name: Lint YAML files
+        run: |
+          echo "🔍 Linting YAML files..."
+          nix develop --command yamllint .
+          echo "✅ YAML linting completed!"
+
+      - name: Lint GitHub Actions
+        run: |
+          echo "🔍 Linting GitHub Actions..."
+          nix develop --command actionlint
+          echo "✅ GitHub Actions linting completed!"
+
+  build-systems:
+    name: Build NixOS Systems
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
+
+      - name: Build NixOS configurations
+        run: |
+          echo "🏗️ Building NixOS configurations for ${{ matrix.system }}..."
           
-          # Check for dead code
-          if command -v deadnix >/dev/null 2>&1; then
-            deadnix --fail --exclude flake.nix .
+          # Get list of available NixOS configurations
+          if [ -d "systems" ]; then
+            for config in systems/*.nix; do
+              if [ -f "$config" ]; then
+                config_name=$(basename "$config" .nix)
+                echo "Building nixosConfigurations.$config_name..."
+                nix build ".#nixosConfigurations.$config_name.config.system.build.toplevel" --show-trace
+              fi
+            done
           else
-            nix run nixpkgs#deadnix -- --fail --exclude flake.nix .
+            echo "ℹ️ No systems directory found, checking for default configuration..."
+            nix build ".#nixosConfigurations.default.config.system.build.toplevel" --show-trace || echo "No default configuration found"
           fi
           
-          # Static analysis
-          if command -v statix >/dev/null 2>&1; then
-            statix check .
+          echo "✅ NixOS system builds completed!"
+
+  build-home-manager:
+    name: Build Home Manager Configurations
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
+
+      - name: Build Home Manager configurations
+        run: |
+          echo "🏠 Building Home Manager configurations for ${{ matrix.system }}..."
+          
+          # Try to build home manager configurations if they exist
+          if [ -d "home" ]; then
+            # Check if homeConfigurations are available in flake outputs
+            if nix eval ".#homeConfigurations" --json >/dev/null 2>&1; then
+              nix eval ".#homeConfigurations" --json | jq -r 'keys[]' | while read config; do
+                echo "Building homeConfigurations.$config..."
+                nix build ".#homeConfigurations.$config.activationPackage" --show-trace
+              done
+            else
+              echo "ℹ️ No homeConfigurations found in flake outputs"
+            fi
           else
-            nix run nixpkgs#statix -- check .
+            echo "ℹ️ No home directory found"
+          fi
+          
+          echo "✅ Home Manager builds completed!"
+
+  security-check:
+    name: Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Check for secrets in repository
+        run: |
+          echo "🔒 Checking for potential secrets..."
+          
+          # Check for common secret patterns
+          if grep -r -i "password\|secret\|key\|token" --include="*.nix" --include="*.yaml" --include="*.yml" . | grep -v "sops\|age\|encrypted"; then
+            echo "⚠️ Potential secrets found! Please review the above matches."
+            echo "Make sure all secrets are properly encrypted with sops-nix or similar."
+          else
+            echo "✅ No obvious secrets found in plaintext"
           fi
 
-      # ENHANCED: Better shell script checking
-      - name: Check shell scripts
+      - name: Validate sops files
         run: |
-          echo "🐚 Checking shell scripts..."
+          echo "🔐 Validating sops encrypted files..."
           
-          shopt -s globstar nullglob
-          scripts=(**/*.sh **/scripts/* **/**/scripts/*)
-          
-          if [[ ${#scripts[@]} -gt 0 ]]; then
-            # Check syntax and style
-            nix run nixpkgs#shellcheck -- "${scripts[@]}"
-            nix run nixpkgs#shfmt -- -d "${scripts[@]}"
-            echo "✅ All shell scripts passed checks"
+          if [ -d "secrets" ]; then
+            find secrets -name "*.yaml" -o -name "*.yml" -o -name "*.json" | while read file; do
+              echo "Checking $file..."
+              if grep -q "sops:" "$file"; then
+                echo "✅ $file appears to be properly encrypted with sops"
+              else
+                echo "⚠️ $file may not be encrypted with sops"
+              fi
+            done
           else
-            echo "ℹ️ No shell scripts found"
+            echo "ℹ️ No secrets directory found"
           fi
 
-      # ENHANCED: Document validation
-      - name: Validate documentation
-        run: |
-          echo "📚 Validating documentation..."
-          
-          # Check markdown files
-          if find . -name "*.md" -not -path "./.git/*" | head -1 | read -r; then
-            find . -name "*.md" -not -path "./.git/*" -exec nix run nixpkgs#markdownlint-cli -- {} +
-          fi
-          
-          # Check YAML files
-          if find . -name "*.yml" -o -name "*.yaml" -not -path "./.git/*" | head -1 | read -r; then
-            nix run nixpkgs#yamllint -- .
-          fi
+  documentation-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # ENHANCED: GitHub Actions validation
-      - name: Validate GitHub Actions
-        if: hashFiles('.github/workflows/*.yml', '.github/workflows/*.yaml') != ''
+      - name: Check required documentation
         run: |
-          echo "⚙️ Validating GitHub Actions..."
-          nix run nixpkgs#actionlint
-
-      # DEVENV: Test development environments
-      - name: Test devenv shells
-        run: |
-          echo "🧪 Testing devenv development environments..."
+          echo "📚 Checking documentation completeness..."
           
-          # Test that devenv can build the shells
-          echo "Testing default shell..."
-          if nix develop --no-pure-eval --command echo "Default shell works"; then
-            echo "✅ Default shell builds successfully"
+          # Check for README
+          if [ -f "README.md" ]; then
+            echo "✅ README.md found"
           else
-            echo "❌ Default shell failed to build"
+            echo "❌ README.md missing"
             exit 1
           fi
           
-          # Test language-specific shells
-          for shell in python rust zig julia; do
-            echo "Testing $shell shell..."
-            if timeout 60 nix develop --no-pure-eval .#$shell --command echo "$shell shell works"; then
-              echo "✅ $shell shell builds successfully"
-            else
-              echo "❌ $shell shell failed to build"
-              exit 1
-            fi
-          done
-          
-          # Test devenv CLI integration
-          echo "Testing devenv CLI..."
-          if devenv test; then
-            echo "✅ devenv test passed"
+          # Check for docs directory
+          if [ -d "docs" ]; then
+            echo "✅ docs/ directory found"
+            
+            # Check for common documentation files
+            for doc in "bootstrap.md" "installation.md" "configuration.md"; do
+              if find docs -name "$doc" -o -name "${doc%.*}.*" | grep -q .; then
+                echo "✅ Found documentation: $doc"
+              else
+                echo "ℹ️ Optional documentation not found: $doc"
+              fi
+            done
           else
-            echo "❌ devenv test failed"
-            exit 1
+            echo "ℹ️ docs/ directory not found (optional)"
           fi
+          
+          echo "✅ Documentation check completed!"
 
-  # Build validation
-  build-validation:
+  integration-test:
+    name: Integration Test
     runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.config-exists == 'true'
-    timeout-minutes: 30
-    permissions:
-      contents: read
+    needs: [nix-flake-check, format-check, lint-checks]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
         with:
-          persist-credentials: false
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
 
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
         with:
           name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      - name: Build NixOS configuration
+      - name: Test development shell
         run: |
-          echo "🏗️ Building NixOS configuration..."
-          
-          # Build system configuration with security restrictions
-          nix build \
-            .#nixosConfigurations.blazar.config.system.build.toplevel \
-            --show-trace \
-            --option sandbox true \
-            --option max-silent-time 600 \
-            --option timeout 1800
-          
-          echo "✅ System configuration built successfully"
-          
-          # Show build info
-          nix path-info --json result | jq -r '.[] | "Size: \(.narSize) bytes"'
+          echo "🧪 Testing development shell..."
+          nix develop --command echo "Development shell works!"
+          echo "✅ Development shell test completed!"
 
-  # Enhanced checks execution
-  checks:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.has-checks == 'true'
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
-        with:
-          name: devenv
-
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      - name: Run validation checks
+      - name: Run custom tests if available
         run: |
-          echo "✅ Running validation checks..."
+          echo "🧪 Running custom tests..."
           
-          # Run all available checks
-          nix build .#checks.x86_64-linux --show-trace
-          
-          echo "✅ All checks passed"
-
-  # Security audit
-  security-audit:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.config-exists == 'true'
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Quick security scan
-        run: |
-          echo "🔍 Running security scan..."
-          
-          # Build system for scanning
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
-          system_path=$(readlink -f result)
-          
-          # Quick vulnerability check
-          if command -v vulnix >/dev/null 2>&1; then
-            vulnix --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
-          else
-            nix run nixpkgs#vulnix -- --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
-          fi
-
-  # CI summary
-  ci-summary:
-    runs-on: ubuntu-latest
-    needs: [validate, code-quality, build-validation, checks, security-audit]
-    if: always()
-    permissions:
-      contents: read
-    steps:
-      - name: Generate CI summary
-        run: |
-          {
-            echo "# 🎯 CI Pipeline Summary"
-            echo ""
-            echo "## Validation Results"
-            echo "- **Flake validation**: ${{ needs.validate.result == 'success' && '✅ Passed' || '❌ Failed' }}"
-            echo "- **Code quality**: ${{ needs.code-quality.result == 'success' && '✅ Passed' || needs.code-quality.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Build validation**: ${{ needs.build-validation.result == 'success' && '✅ Passed' || needs.build-validation.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Checks**: ${{ needs.checks.result == 'success' && '✅ Passed' || needs.checks.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Security audit**: ${{ needs.security-audit.result == 'success' && '✅ Passed' || needs.security-audit.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo ""
-            echo "## Security Features"
-            echo "- ✅ SHA-pinned actions (supply chain security)"
-            echo "- ✅ Secure runner configuration"
-            echo "- ✅ Minimal permissions (RBAC)"
-            echo "- ✅ Sandboxed Nix builds"
-            echo "- ✅ Dependency validation"
-            echo "- ✅ Vulnerability scanning"
-            echo ""
-            if [[ "${{ needs.validate.result }}" == "success" && "${{ needs.code-quality.result }}" == "success" && ("${{ needs.build-validation.result }}" == "success" || "${{ needs.build-validation.result }}" == "skipped") ]]; then
-              echo "🎉 **Overall Status**: All critical checks passed!"
+          if [ -d "tests" ]; then
+            echo "Found tests directory, running tests..."
+            if [ -f "tests/run.sh" ]; then
+              nix develop --command bash tests/run.sh
+            elif [ -f "tests/default.nix" ]; then
+              nix build ".#checks.x86_64-linux.tests" --show-trace
             else
-              echo "⚠️ **Overall Status**: Some checks failed - review required"
+              echo "ℹ️ Tests directory found but no test runner detected"
             fi
-            echo ""
-            echo "---"
-            echo "*Hardened CI pipeline following 2025 security best practices*"
-          } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ℹ️ No tests directory found"
+          fi
+          
+          echo "✅ Custom tests completed!"

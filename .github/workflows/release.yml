@@ -1,0 +1,557 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: 'Create as draft release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+  deployments: write
+
+jobs:
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      is_prerelease: ${{ steps.check_prerelease.outputs.is_prerelease }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          
+          # Validate version format
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: v1.0.0 or v1.0.0-beta"
+            exit 1
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "✅ Version: $VERSION"
+
+      - name: Check if pre-release
+        id: check_prerelease
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          
+          if [[ "$VERSION" =~ -[a-zA-Z] ]] || [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "ℹ️ This is a pre-release"
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ This is a stable release"
+          fi
+
+      - name: Validate changelog
+        run: |
+          echo "📋 Checking for changelog entry..."
+          
+          VERSION="${{ steps.get_version.outputs.version }}"
+          
+          if [ -f "CHANGELOG.md" ]; then
+            if grep -q "$VERSION" CHANGELOG.md; then
+              echo "✅ Changelog entry found for $VERSION"
+            else
+              echo "⚠️ No changelog entry found for $VERSION"
+              echo "Consider adding a changelog entry before release"
+            fi
+          else
+            echo "ℹ️ No CHANGELOG.md found"
+          fi
+
+  build-release-artifacts:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: validate-release
+    strategy:
+      matrix:
+        system: [x86_64-linux]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: false
+
+      - name: Build all system configurations
+        run: |
+          echo "🏗️ Building all system configurations for release..."
+          
+          # Create release artifacts directory
+          mkdir -p release-artifacts
+          
+          # Build all available system configurations
+          if [ -d "systems" ]; then
+            for config in systems/*.nix; do
+              if [ -f "$config" ]; then
+                config_name=$(basename "$config" .nix)
+                echo "Building $config_name..."
+                
+                # Build the system
+                nix build ".#nixosConfigurations.$config_name.config.system.build.toplevel" \
+                  --show-trace \
+                  --log-format bar-with-logs
+                
+                # Create system info
+                cat > "release-artifacts/$config_name-system-info.json" << EOF
+          {
+            "system": "$config_name",
+            "version": "${{ needs.validate-release.outputs.version }}",
+            "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "commit": "${{ github.sha }}",
+            "nix_path": "$(nix path-info result)",
+            "system_type": "${{ matrix.system }}"
+          }
+          EOF
+                
+                # Copy system closure info
+                nix path-info -r result > "release-artifacts/$config_name-closure.txt"
+                
+                echo "✅ Built $config_name"
+              fi
+            done
+          else
+            echo "ℹ️ No systems directory found"
+          fi
+
+      - name: Build Home Manager configurations
+        run: |
+          echo "🏠 Building Home Manager configurations..."
+          
+          # Check if homeConfigurations exist
+          if nix eval ".#homeConfigurations" --json >/dev/null 2>&1; then
+            nix eval ".#homeConfigurations" --json | jq -r 'keys[]' | while read config; do
+              echo "Building Home Manager config: $config"
+              
+              nix build ".#homeConfigurations.$config.activationPackage" --show-trace
+              
+              # Create home manager info
+              cat > "release-artifacts/$config-home-info.json" << EOF
+          {
+            "home_config": "$config",
+            "version": "${{ needs.validate-release.outputs.version }}",
+            "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "commit": "${{ github.sha }}",
+            "nix_path": "$(nix path-info result)",
+            "system_type": "${{ matrix.system }}"
+          }
+          EOF
+              
+              echo "✅ Built Home Manager config: $config"
+            done
+          else
+            echo "ℹ️ No Home Manager configurations found"
+          fi
+
+      - name: Generate release metadata
+        run: |
+          echo "📋 Generating release metadata..."
+          
+          # Create comprehensive release metadata
+          cat > "release-artifacts/release-metadata.json" << EOF
+          {
+            "version": "${{ needs.validate-release.outputs.version }}",
+            "commit": "${{ github.sha }}",
+            "tag": "${{ github.ref }}",
+            "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "is_prerelease": ${{ needs.validate-release.outputs.is_prerelease }},
+            "system_type": "${{ matrix.system }}",
+            "flake_info": {
+              "inputs": $(nix flake metadata --json | jq '.locks.nodes.root.inputs'),
+              "outputs": $(nix flake show --json | jq 'keys')
+            },
+            "build_environment": {
+              "nix_version": "$(nix --version)",
+              "runner": "GitHub Actions",
+              "os": "ubuntu-latest"
+            }
+          }
+          EOF
+          
+          # Generate flake info
+          nix flake metadata --json > "release-artifacts/flake-metadata.json"
+          nix flake show --json > "release-artifacts/flake-outputs.json"
+          
+          # Copy important files
+          cp flake.nix release-artifacts/
+          cp flake.lock release-artifacts/
+          
+          if [ -f "README.md" ]; then
+            cp README.md release-artifacts/
+          fi
+          
+          if [ -f "CHANGELOG.md" ]; then
+            cp CHANGELOG.md release-artifacts/
+          fi
+
+      - name: Create release archive
+        run: |
+          echo "📦 Creating release archive..."
+          
+          cd release-artifacts
+          tar -czf "../nixos-config-${{ needs.validate-release.outputs.version }}-${{ matrix.system }}.tar.gz" .
+          cd ..
+          
+          # Generate checksums
+          sha256sum "nixos-config-${{ needs.validate-release.outputs.version }}-${{ matrix.system }}.tar.gz" > \
+            "nixos-config-${{ needs.validate-release.outputs.version }}-${{ matrix.system }}.tar.gz.sha256"
+          
+          echo "✅ Release archive created"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.system }}-${{ needs.validate-release.outputs.version }}
+          path: |
+            nixos-config-${{ needs.validate-release.outputs.version }}-${{ matrix.system }}.tar.gz
+            nixos-config-${{ needs.validate-release.outputs.version }}-${{ matrix.system }}.tar.gz.sha256
+            release-artifacts/
+          retention-days: 90
+
+  test-release:
+    name: Test Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-release-artifacts]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Test flake functionality
+        run: |
+          echo "🧪 Testing flake functionality..."
+          
+          # Test flake check
+          nix -L flake check --show-trace
+          
+          # Test development shell
+          nix develop --command echo "Development shell works"
+          
+          # Test that all outputs are accessible
+          nix flake show
+          
+          echo "✅ Release tests passed"
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-release-artifacts, test-release]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          echo "📝 Generating release notes..."
+          
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          # Start release notes
+          cat > release_notes.md << EOF
+          # NixOS Configuration Release $VERSION
+          
+          This release contains the NixOS configuration flake with all system and Home Manager configurations.
+          
+          ## 🚀 What's New
+          
+          EOF
+          
+          # Add changelog section if available
+          if [ -f "CHANGELOG.md" ] && grep -q "$VERSION" CHANGELOG.md; then
+            echo "### Changelog" >> release_notes.md
+            echo "" >> release_notes.md
+            
+            # Extract changelog section for this version
+            awk "/^## \[$VERSION\]|^## $VERSION/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          # Add system information
+          cat >> release_notes.md << EOF
+          ## 📦 Included Configurations
+          
+          ### NixOS Systems
+          EOF
+          
+          if [ -d "systems" ]; then
+            for config in systems/*.nix; do
+              if [ -f "$config" ]; then
+                config_name=$(basename "$config" .nix)
+                echo "- \`$config_name\`" >> release_notes.md
+              fi
+            done
+          else
+            echo "- No system configurations found" >> release_notes.md
+          fi
+          
+          echo "" >> release_notes.md
+          echo "### Home Manager Configurations" >> release_notes.md
+          
+          if [ -d "home" ]; then
+            echo "- Home Manager configurations available" >> release_notes.md
+          else
+            echo "- No Home Manager configurations found" >> release_notes.md
+          fi
+          
+          # Add technical details
+          cat >> release_notes.md << EOF
+          
+          ## 🔧 Technical Details
+          
+          - **Commit**: \`${{ github.sha }}\`
+          - **Built with**: Nix flakes
+          - **System**: x86_64-linux
+          - **Pre-release**: ${{ needs.validate-release.outputs.is_prerelease }}
+          
+          ## 📥 Installation
+          
+          ### Using this flake directly:
+          \`\`\`bash
+          # Clone the repository
+          git clone https://github.com/${{ github.repository }}.git
+          cd $(basename ${{ github.repository }})
+          git checkout $VERSION
+          
+          # Build a system configuration
+          nix build .#nixosConfigurations.<system-name>.config.system.build.toplevel
+          
+          # Or deploy with nixos-rebuild
+          sudo nixos-rebuild switch --flake .#<system-name>
+          \`\`\`
+          
+          ### Using the release archive:
+          1. Download the release archive below
+          2. Extract it: \`tar -xzf nixos-config-$VERSION-x86_64-linux.tar.gz\`
+          3. Review the included configurations and metadata
+          
+          ## 🔐 Verification
+          
+          Verify the integrity of downloaded files using the provided SHA256 checksums:
+          \`\`\`bash
+          sha256sum -c nixos-config-$VERSION-x86_64-linux.tar.gz.sha256
+          \`\`\`
+          
+          ## 📚 Documentation
+          
+          - See [README.md](./README.md) for detailed setup instructions
+          - Check [docs/](./docs/) for additional documentation
+          - Review system configurations in [systems/](./systems/)
+          
+          ---
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/$(git describe --tags --abbrev=0 HEAD~1)...$VERSION
+          EOF
+          
+          echo "✅ Release notes generated"
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const version = '${{ needs.validate-release.outputs.version }}';
+            const isPrerelease = ${{ needs.validate-release.outputs.is_prerelease }};
+            const isDraft = ${{ github.event.inputs.draft || false }};
+            
+            // Read release notes
+            const releaseNotes = fs.readFileSync('release_notes.md', 'utf8');
+            
+            // Create the release
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: version,
+              target_commitish: context.sha,
+              name: `NixOS Configuration ${version}`,
+              body: releaseNotes,
+              draft: isDraft,
+              prerelease: isPrerelease
+            });
+            
+            console.log(`Created release: ${release.data.html_url}`);
+            
+            // Upload release assets
+            const releaseId = release.data.id;
+            
+            // Find and upload all release artifacts
+            const glob = require('@actions/glob');
+            const globber = await glob.create('nixos-config-*.tar.gz*');
+            const files = await globber.glob();
+            
+            for (const file of files) {
+              const fileName = path.basename(file);
+              const fileContent = fs.readFileSync(file);
+              
+              console.log(`Uploading ${fileName}...`);
+              
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseId,
+                name: fileName,
+                data: fileContent
+              });
+              
+              console.log(`✅ Uploaded ${fileName}`);
+            }
+            
+            return release.data.html_url;
+
+  post-release:
+    name: Post-Release Tasks
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release]
+    if: success()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update documentation
+        run: |
+          echo "📚 Post-release documentation tasks..."
+          
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          # This is where you might:
+          # 1. Update documentation with new version
+          # 2. Update badges in README
+          # 3. Create documentation for the new release
+          # 4. Update any version references
+          
+          echo "ℹ️ Consider updating:"
+          echo "  - README.md badges"
+          echo "  - Documentation version references"
+          echo "  - Installation instructions"
+
+      - name: Notify deployment systems
+        run: |
+          echo "🚀 Notifying deployment systems..."
+          
+          # This is where you might:
+          # 1. Trigger deployment to staging/production
+          # 2. Update container registries
+          # 3. Notify monitoring systems
+          # 4. Update configuration management systems
+          
+          echo "ℹ️ Release ${{ needs.validate-release.outputs.version }} is ready for deployment"
+
+      - name: Create follow-up issues
+        if: needs.validate-release.outputs.is_prerelease == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ needs.validate-release.outputs.version }}';
+            
+            // Create a follow-up issue for the next release planning
+            const nextVersion = version.replace(/v(\d+)\.(\d+)\.(\d+)/, (match, major, minor, patch) => {
+              return `v${major}.${parseInt(minor) + 1}.0`;
+            });
+            
+            const issueBody = `## Next Release Planning: ${nextVersion}
+            
+            This issue tracks planning for the next release following ${version}.
+            
+            ### Potential Features
+            - [ ] Review and update dependencies
+            - [ ] Address any issues found in ${version}
+            - [ ] Consider new system configurations
+            - [ ] Update documentation
+            
+            ### Release Checklist
+            - [ ] Update CHANGELOG.md
+            - [ ] Test all system configurations
+            - [ ] Verify security configurations
+            - [ ] Update documentation
+            - [ ] Create release notes
+            
+            ---
+            *This issue was automatically created after releasing ${version}*`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Plan next release: ${nextVersion}`,
+              body: issueBody,
+              labels: ['release', 'planning', 'enhancement']
+            });
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-release-artifacts, test-release, create-release, post-release]
+    if: always()
+    steps:
+      - name: Release summary
+        run: |
+          echo "🎉 Release Workflow Complete"
+          echo "============================"
+          echo ""
+          echo "Version: ${{ needs.validate-release.outputs.version }}"
+          echo "Pre-release: ${{ needs.validate-release.outputs.is_prerelease }}"
+          echo "Build: ${{ needs.build-release-artifacts.result }}"
+          echo "Tests: ${{ needs.test-release.result }}"
+          echo "Release: ${{ needs.create-release.result }}"
+          echo "Post-release: ${{ needs.post-release.result }}"
+          echo ""
+          
+          if [ "${{ needs.create-release.result }}" = "success" ]; then
+            echo "✅ Release ${{ needs.validate-release.outputs.version }} created successfully!"
+            echo "🔗 Check the releases page for download links"
+          else
+            echo "❌ Release creation failed"
+          fi

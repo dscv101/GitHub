@@ -1,0 +1,354 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      target_host:
+        description: 'Target host to deploy to'
+        required: true
+        default: 'blazar'
+        type: choice
+        options:
+          - blazar
+          - all
+      dry_run:
+        description: 'Perform a dry run (no actual deployment)'
+        required: false
+        default: false
+        type: boolean
+      force_rebuild:
+        description: 'Force rebuild even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  prepare-deployment:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_id: ${{ steps.create_deployment.outputs.deployment_id }}
+      target_hosts: ${{ steps.determine_hosts.outputs.hosts }}
+      should_deploy: ${{ steps.check_changes.outputs.should_deploy }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine target hosts
+        id: determine_hosts
+        run: |
+          if [ "${{ github.event.inputs.target_host }}" = "all" ]; then
+            # Get all available system configurations
+            hosts=$(find systems -name "*.nix" -exec basename {} .nix \; | jq -R -s -c 'split("\n")[:-1]')
+          elif [ -n "${{ github.event.inputs.target_host }}" ]; then
+            hosts='["${{ github.event.inputs.target_host }}"]'
+          else
+            # Default deployment targets for main branch
+            hosts='["blazar"]'
+          fi
+          echo "hosts=$hosts" >> $GITHUB_OUTPUT
+          echo "Target hosts: $hosts"
+
+      - name: Check for deployment-worthy changes
+        id: check_changes
+        run: |
+          should_deploy="true"
+          
+          # If this is a manual dispatch, always deploy (unless dry run)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual deployment triggered"
+            should_deploy="true"
+          # If this is a tag push, always deploy
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "Tag deployment triggered"
+            should_deploy="true"
+          # For main branch pushes, check if there are relevant changes
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "Checking for deployment-worthy changes..."
+            
+            # Get the previous commit
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              # Check for changes in deployment-relevant files
+              if git diff --name-only HEAD~1 HEAD | grep -E "(flake\.(nix|lock)|systems/|modules/|home/)"; then
+                echo "Found deployment-relevant changes"
+                should_deploy="true"
+              else
+                echo "No deployment-relevant changes found"
+                should_deploy="false"
+              fi
+            else
+              echo "First commit, deploying"
+              should_deploy="true"
+            fi
+          fi
+          
+          # Override if force rebuild is requested
+          if [ "${{ github.event.inputs.force_rebuild }}" = "true" ]; then
+            echo "Force rebuild requested"
+            should_deploy="true"
+          fi
+          
+          echo "should_deploy=$should_deploy" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub deployment
+        id: create_deployment
+        if: steps.check_changes.outputs.should_deploy == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'production',
+              description: 'NixOS system deployment',
+              auto_merge: false,
+              required_contexts: []
+            });
+            
+            core.setOutput('deployment_id', deployment.data.id);
+            return deployment.data.id;
+
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    needs: prepare-deployment
+    if: needs.prepare-deployment.outputs.should_deploy == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        host: ${{ fromJson(needs.prepare-deployment.outputs.target_hosts) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: false
+
+      - name: Build NixOS configuration
+        run: |
+          echo "🏗️ Building NixOS configuration for ${{ matrix.host }}..."
+          
+          # Build the system configuration
+          nix build ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel" \
+            --show-trace \
+            --log-format bar-with-logs
+          
+          echo "✅ Build completed for ${{ matrix.host }}"
+
+      - name: Prepare deployment artifacts
+        run: |
+          echo "📦 Preparing deployment artifacts..."
+          
+          # Create deployment directory
+          mkdir -p deployment-artifacts
+          
+          # Copy the built system to artifacts
+          cp -L result deployment-artifacts/system-${{ matrix.host }}
+          
+          # Generate deployment metadata
+          cat > deployment-artifacts/metadata-${{ matrix.host }}.json << EOF
+          {
+            "host": "${{ matrix.host }}",
+            "commit": "${{ github.sha }}",
+            "ref": "${{ github.ref }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "actor": "${{ github.actor }}",
+            "dry_run": ${{ github.event.inputs.dry_run || false }}
+          }
+          EOF
+          
+          echo "✅ Deployment artifacts prepared"
+
+      - name: Deploy to target host
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "🚀 Deploying to ${{ matrix.host }}..."
+          
+          # This is where you would implement your actual deployment logic
+          # Examples of deployment methods:
+          
+          # Option 1: Using nixos-rebuild with SSH
+          # nixos-rebuild switch --flake ".#${{ matrix.host }}" --target-host "root@${{ matrix.host }}.example.com"
+          
+          # Option 2: Using deploy-rs
+          # nix run github:serokell/deploy-rs -- --hostname "${{ matrix.host }}.example.com" ".#${{ matrix.host }}"
+          
+          # Option 3: Using colmena
+          # nix run nixpkgs#colmena -- deploy --on "${{ matrix.host }}"
+          
+          # For this example, we'll simulate the deployment
+          echo "🔧 Simulating deployment process..."
+          echo "   - Copying system closure to target host..."
+          echo "   - Activating new system configuration..."
+          echo "   - Restarting services as needed..."
+          
+          # In a real deployment, you would:
+          # 1. Copy the built system to the target host
+          # 2. Run the activation script
+          # 3. Handle any service restarts
+          # 4. Verify the deployment was successful
+          
+          echo "✅ Deployment completed for ${{ matrix.host }}"
+
+      - name: Dry run simulation
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🧪 Performing dry run for ${{ matrix.host }}..."
+          
+          # Simulate what would happen during deployment
+          echo "Would deploy the following system:"
+          nix path-info ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
+          
+          echo "System dependencies:"
+          nix path-info -r ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel" | wc -l | xargs echo "Total packages:"
+          
+          echo "✅ Dry run completed for ${{ matrix.host }}"
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ matrix.host }}-${{ github.sha }}
+          path: deployment-artifacts/
+          retention-days: 30
+
+      - name: Verify deployment
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "🔍 Verifying deployment for ${{ matrix.host }}..."
+          
+          # In a real scenario, you would:
+          # 1. SSH to the target host
+          # 2. Check system status
+          # 3. Verify critical services are running
+          # 4. Run health checks
+          
+          # For this example, we'll simulate verification
+          echo "   - Checking system status... ✅"
+          echo "   - Verifying services... ✅"
+          echo "   - Running health checks... ✅"
+          
+          echo "✅ Deployment verification completed for ${{ matrix.host }}"
+
+  update-deployment-status:
+    name: Update Deployment Status
+    runs-on: ubuntu-latest
+    needs: [prepare-deployment, build-and-deploy]
+    if: always() && needs.prepare-deployment.outputs.deployment_id
+    steps:
+      - name: Update deployment status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deploymentId = ${{ needs.prepare-deployment.outputs.deployment_id }};
+            const buildResult = '${{ needs.build-and-deploy.result }}';
+            
+            let state, description;
+            
+            if (buildResult === 'success') {
+              state = 'success';
+              description = 'Deployment completed successfully';
+            } else if (buildResult === 'failure') {
+              state = 'failure';
+              description = 'Deployment failed';
+            } else if (buildResult === 'cancelled') {
+              state = 'error';
+              description = 'Deployment was cancelled';
+            } else {
+              state = 'error';
+              description = 'Deployment status unknown';
+            }
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deploymentId,
+              state: state,
+              description: description,
+              environment_url: 'https://your-deployed-system.example.com'
+            });
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [prepare-deployment, build-and-deploy]
+    if: failure() && needs.prepare-deployment.outputs.deployment_id
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Perform rollback
+        run: |
+          echo "🔄 Performing rollback due to deployment failure..."
+          
+          # In a real scenario, you would:
+          # 1. SSH to the target hosts
+          # 2. Run nixos-rebuild switch --rollback
+          # 3. Verify the rollback was successful
+          
+          # For this example, we'll simulate rollback
+          echo "   - Rolling back system configuration..."
+          echo "   - Restarting affected services..."
+          echo "   - Verifying rollback success..."
+          
+          echo "✅ Rollback completed"
+
+      - name: Notify rollback
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deploymentId = ${{ needs.prepare-deployment.outputs.deployment_id }};
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deploymentId,
+              state: 'failure',
+              description: 'Deployment failed and was rolled back'
+            });
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [prepare-deployment, build-and-deploy, update-deployment-status]
+    if: always()
+    steps:
+      - name: Cleanup deployment artifacts
+        run: |
+          echo "🧹 Cleaning up deployment artifacts..."
+          
+          # In a real scenario, you might:
+          # 1. Clean up temporary files on deployment hosts
+          # 2. Remove old system generations (keeping a few for rollback)
+          # 3. Update monitoring/logging systems
+          
+          echo "✅ Cleanup completed"

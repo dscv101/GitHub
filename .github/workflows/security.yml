@@ -1,0 +1,372 @@
+name: Security
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security checks daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  sops-validation:
+    name: SOPS Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Validate SOPS encrypted files
+        run: |
+          echo "🔐 Validating SOPS encrypted files..."
+          
+          # Check if secrets directory exists
+          if [ ! -d "secrets" ]; then
+            echo "ℹ️ No secrets directory found, skipping SOPS validation"
+            exit 0
+          fi
+          
+          # Find all potential secret files
+          find secrets -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) | while read -r file; do
+            echo "Checking $file..."
+            
+            # Check if file contains sops metadata
+            if grep -q "sops:" "$file" && grep -q "version:" "$file"; then
+              echo "✅ $file appears to be properly encrypted with SOPS"
+              
+              # Validate SOPS structure
+              if ! grep -q "mac:" "$file"; then
+                echo "⚠️ $file may be missing MAC for integrity verification"
+              fi
+              
+              if ! grep -q "pgp:\|age:" "$file"; then
+                echo "⚠️ $file may be missing encryption keys"
+              fi
+            else
+              echo "❌ $file does not appear to be encrypted with SOPS"
+              echo "Content preview (first 5 lines):"
+              head -5 "$file"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All secret files are properly encrypted"
+
+      - name: Check for age keys configuration
+        run: |
+          echo "🔑 Checking age keys configuration..."
+          
+          # Check for .sops.yaml configuration
+          if [ -f ".sops.yaml" ] || [ -f ".sops.yml" ]; then
+            echo "✅ SOPS configuration file found"
+            
+            # Validate configuration structure
+            config_file=""
+            if [ -f ".sops.yaml" ]; then
+              config_file=".sops.yaml"
+            else
+              config_file=".sops.yml"
+            fi
+            
+            if grep -q "age:" "$config_file"; then
+              echo "✅ Age encryption configured"
+            fi
+            
+            if grep -q "pgp:" "$config_file"; then
+              echo "✅ PGP encryption configured"
+            fi
+            
+            if grep -q "creation_rules:" "$config_file"; then
+              echo "✅ Creation rules defined"
+            fi
+          else
+            echo "⚠️ No SOPS configuration file found (.sops.yaml or .sops.yml)"
+            echo "This is recommended for consistent encryption settings"
+          fi
+
+  dependency-security:
+    name: Dependency Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Check for known vulnerabilities in Nix packages
+        run: |
+          echo "🔍 Checking for known vulnerabilities..."
+          
+          # This is a basic check - in a real scenario you might want to use
+          # tools like vulnix or nix-audit-tools
+          echo "ℹ️ Basic vulnerability check (consider using vulnix for comprehensive scanning)"
+          
+          # Check flake.lock for any obviously outdated or vulnerable packages
+          if [ -f "flake.lock" ]; then
+            echo "📋 Flake lock file found, checking for recent updates..."
+            
+            # Get the last modified date of flake.lock
+            lock_age=$(stat -c %Y flake.lock)
+            current_time=$(date +%s)
+            age_days=$(( (current_time - lock_age) / 86400 ))
+            
+            if [ $age_days -gt 30 ]; then
+              echo "⚠️ flake.lock is $age_days days old - consider updating dependencies"
+            else
+              echo "✅ flake.lock is relatively recent ($age_days days old)"
+            fi
+          fi
+
+      - name: Check for insecure Nix configurations
+        run: |
+          echo "🔒 Checking for insecure Nix configurations..."
+          
+          # Check for common security anti-patterns in Nix files
+          insecure_patterns_found=false
+          
+          # Check for allowUnfree without proper justification
+          if grep -r "allowUnfree.*true" --include="*.nix" . | grep -v "# SECURITY:"; then
+            echo "⚠️ Found allowUnfree without security comment"
+            insecure_patterns_found=true
+          fi
+          
+          # Check for allowInsecure
+          if grep -r "allowInsecure" --include="*.nix" .; then
+            echo "⚠️ Found allowInsecure - review if this is necessary"
+            insecure_patterns_found=true
+          fi
+          
+          # Check for permittedInsecurePackages
+          if grep -r "permittedInsecurePackages" --include="*.nix" .; then
+            echo "⚠️ Found permittedInsecurePackages - review if this is necessary"
+            insecure_patterns_found=true
+          fi
+          
+          # Check for hardcoded URLs without hash verification
+          if grep -r "fetchurl.*url.*=" --include="*.nix" . | grep -v "sha256\|hash"; then
+            echo "⚠️ Found fetchurl without hash verification"
+            insecure_patterns_found=true
+          fi
+          
+          if [ "$insecure_patterns_found" = true ]; then
+            echo "❌ Insecure patterns found - please review"
+            exit 1
+          else
+            echo "✅ No obvious insecure patterns found"
+          fi
+
+  file-permissions:
+    name: File Permissions Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check file permissions
+        run: |
+          echo "🔐 Checking file permissions..."
+          
+          # Check for world-writable files
+          world_writable=$(find . -type f -perm -002 -not -path "./.git/*" -not -path "./result*" || true)
+          if [ -n "$world_writable" ]; then
+            echo "❌ World-writable files found:"
+            echo "$world_writable"
+            exit 1
+          else
+            echo "✅ No world-writable files found"
+          fi
+          
+          # Check for executable files that shouldn't be
+          suspicious_executables=$(find . -type f -executable -name "*.nix" -o -name "*.yaml" -o -name "*.yml" -o -name "*.md" | grep -v ".git" || true)
+          if [ -n "$suspicious_executables" ]; then
+            echo "⚠️ Suspicious executable files found:"
+            echo "$suspicious_executables"
+            echo "Consider removing execute permissions if not needed"
+          else
+            echo "✅ No suspicious executable files found"
+          fi
+          
+          # Check for proper script permissions
+          if [ -d "scripts" ]; then
+            non_executable_scripts=$(find scripts -name "*.sh" -not -executable || true)
+            if [ -n "$non_executable_scripts" ]; then
+              echo "⚠️ Shell scripts without execute permission:"
+              echo "$non_executable_scripts"
+            else
+              echo "✅ All shell scripts have proper permissions"
+            fi
+          fi
+
+  configuration-security:
+    name: Configuration Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Check NixOS security configurations
+        run: |
+          echo "🛡️ Checking NixOS security configurations..."
+          
+          # Check for common security hardening in NixOS configurations
+          security_issues=false
+          
+          # Check if systems directory exists
+          if [ -d "systems" ] || [ -d "modules" ]; then
+            echo "Checking for security hardening configurations..."
+            
+            # Check for firewall configuration
+            if ! grep -r "networking.firewall" --include="*.nix" systems/ modules/ 2>/dev/null; then
+              echo "⚠️ No firewall configuration found - consider enabling networking.firewall"
+              security_issues=true
+            else
+              echo "✅ Firewall configuration found"
+            fi
+            
+            # Check for SSH hardening
+            if grep -r "services.openssh.enable.*true" --include="*.nix" systems/ modules/ 2>/dev/null; then
+              if ! grep -r "services.openssh.settings.PasswordAuthentication.*false" --include="*.nix" systems/ modules/ 2>/dev/null; then
+                echo "⚠️ SSH enabled but password authentication not explicitly disabled"
+                security_issues=true
+              else
+                echo "✅ SSH properly hardened"
+              fi
+            fi
+            
+            # Check for automatic updates
+            if ! grep -r "system.autoUpgrade" --include="*.nix" systems/ modules/ 2>/dev/null; then
+              echo "ℹ️ No automatic updates configured - consider enabling system.autoUpgrade"
+            else
+              echo "✅ Automatic updates configured"
+            fi
+            
+            # Check for fail2ban or similar
+            if ! grep -r "services.fail2ban\|services.sshguard" --include="*.nix" systems/ modules/ 2>/dev/null; then
+              echo "ℹ️ No intrusion prevention system found - consider fail2ban or sshguard"
+            else
+              echo "✅ Intrusion prevention configured"
+            fi
+          else
+            echo "ℹ️ No systems or modules directory found"
+          fi
+          
+          if [ "$security_issues" = true ]; then
+            echo "⚠️ Security recommendations found - please review"
+          else
+            echo "✅ Basic security checks passed"
+          fi
+
+  supply-chain-security:
+    name: Supply Chain Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check flake inputs security
+        run: |
+          echo "🔗 Checking supply chain security..."
+          
+          if [ -f "flake.nix" ]; then
+            echo "📋 Analyzing flake inputs..."
+            
+            # Check for inputs without explicit commits/tags
+            if grep -E "url.*github:" flake.nix | grep -v "/[a-f0-9]{40}\"" | grep -v "nixos-[0-9]"; then
+              echo "⚠️ Found inputs without explicit commit hashes or version tags:"
+              grep -E "url.*github:" flake.nix | grep -v "/[a-f0-9]{40}\"" | grep -v "nixos-[0-9]"
+              echo "Consider pinning to specific commits for better security"
+            else
+              echo "✅ All inputs appear to be properly pinned"
+            fi
+            
+            # Check for follows declarations
+            follows_count=$(grep -c "follows" flake.nix || echo "0")
+            echo "ℹ️ Found $follows_count 'follows' declarations (good for reducing duplicate dependencies)"
+            
+            # Check flake.lock exists and is recent
+            if [ -f "flake.lock" ]; then
+              echo "✅ flake.lock found (ensures reproducible builds)"
+              
+              # Check if any inputs are from suspicious sources
+              if grep -E "github.com/[^/]+/[^/]+\"" flake.lock | grep -v "github.com/NixOS\|github.com/nix-community\|github.com/cachix\|github.com/hercules-ci"; then
+                echo "ℹ️ Third-party inputs found - verify these are trusted sources:"
+                grep -E "github.com/[^/]+/[^/]+\"" flake.lock | grep -v "github.com/NixOS\|github.com/nix-community\|github.com/cachix\|github.com/hercules-ci" | sort -u
+              fi
+            else
+              echo "❌ flake.lock missing - run 'nix flake lock' to create it"
+              exit 1
+            fi
+          else
+            echo "ℹ️ No flake.nix found"
+          fi
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, sops-validation, dependency-security, file-permissions, configuration-security, supply-chain-security]
+    if: always()
+    steps:
+      - name: Security Summary
+        run: |
+          echo "🛡️ Security Check Summary"
+          echo "========================"
+          echo ""
+          echo "Job Results:"
+          echo "- Secrets Scan: ${{ needs.secrets-scan.result }}"
+          echo "- SOPS Validation: ${{ needs.sops-validation.result }}"
+          echo "- Dependency Security: ${{ needs.dependency-security.result }}"
+          echo "- File Permissions: ${{ needs.file-permissions.result }}"
+          echo "- Configuration Security: ${{ needs.configuration-security.result }}"
+          echo "- Supply Chain Security: ${{ needs.supply-chain-security.result }}"
+          echo ""
+          
+          # Check if any critical security jobs failed
+          if [[ "${{ needs.secrets-scan.result }}" == "failure" ]] || [[ "${{ needs.supply-chain-security.result }}" == "failure" ]]; then
+            echo "❌ Critical security checks failed!"
+            exit 1
+          elif [[ "${{ needs.sops-validation.result }}" == "failure" ]] || [[ "${{ needs.file-permissions.result }}" == "failure" ]]; then
+            echo "⚠️ Important security checks failed - please review"
+            exit 1
+          else
+            echo "✅ All security checks completed successfully"
+          fi
