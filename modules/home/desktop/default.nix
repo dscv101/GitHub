@@ -2,6 +2,7 @@
   imports = [
     ./niri.nix
     ./waybar.nix
+    ./quickshell.nix  # Add quickshell alongside waybar for testing
     ./terminal.nix
     ./launcher.nix
     ./notifications.nix

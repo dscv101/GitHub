@@ -64,5 +64,11 @@
     mk-shell-bin = {
       url = "github:rrbutani/nix-mk-shell-bin";
     };
+
+    # Quickshell - QML-based shell/panel system
+    quickshell = {
+      url = "git+https://git.outfoxxed.me/outfoxxed/quickshell";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 }
