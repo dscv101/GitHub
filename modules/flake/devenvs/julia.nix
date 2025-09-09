@@ -3,8 +3,8 @@ _: {
     devenv.shells.julia = {
       name = "julia-dev";
 
-      # Disable containers to avoid the current directory issue
-      containers = {};
+      # Containers disabled for simplicity - can be enabled later if needed
+      # containers.enable = false; # Commented out due to type mismatch
 
       packages = [
         # Julia

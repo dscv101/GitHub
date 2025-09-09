@@ -128,7 +128,7 @@ jobs:
           validation_result="success"
           
           # Check flake structure
-          if ! nix flake check --show-trace --option restrict-eval true; then
+          if ! nix flake check --show-trace --no-pure-eval --accept-flake-config; then
             echo "❌ Flake check failed"
             validation_result="failed"
           fi
@@ -286,7 +286,7 @@ jobs:
       # Upload artifacts for debugging
       - name: Upload update artifacts
         if: steps.update_inputs.outputs.changes_detected == 'true'
-        uses: actions/upload-artifact@5758c8d99aa7cea1e4a75b12c9d1b8dfa5e8529b # v4.5.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dependency-update-${{ github.run_number }}
           path: |

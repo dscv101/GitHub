@@ -7,16 +7,15 @@
     ./julia.nix
   ];
 
-  # Set devenv root for flakes - use flake root
-  devenv.root = ./.;
+  # Let devenv auto-detect the flake root - no explicit setting needed
 
   perSystem = {pkgs, ...}: {
     # Base development shell with common tools
     devenv.shells.default = {
       name = "nix-blazar-dev";
 
-      # Disable containers to avoid the current directory issue
-      containers = {};
+      # Containers disabled for simplicity - can be enabled later if needed
+      # containers.enable = false; # Commented out due to type mismatch
 
       packages = [
         # Version control

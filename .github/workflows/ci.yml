@@ -55,7 +55,7 @@ jobs:
           echo "🔍 Validating flake and configuration..."
           
           # Check flake validity
-          if ! nix flake check --show-trace; then
+          if ! nix flake check --show-trace --no-pure-eval --accept-flake-config; then
             echo "❌ Flake check failed"
             exit 1
           fi
@@ -125,10 +125,24 @@ jobs:
     permissions:
       contents: read
     steps:
-uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Setup devenv cache
+        uses: cachix/cachix-action@v14
+        with:
+          name: devenv
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       # IMPROVED: Enhanced formatting checks
       - name: Check code formatting
@@ -203,6 +217,40 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
           echo "⚙️ Validating GitHub Actions..."
           nix run nixpkgs#actionlint
 
+      # DEVENV: Test development environments
+      - name: Test devenv shells
+        run: |
+          echo "🧪 Testing devenv development environments..."
+          
+          # Test that devenv can build the shells
+          echo "Testing default shell..."
+          if nix develop --no-pure-eval --command echo "Default shell works"; then
+            echo "✅ Default shell builds successfully"
+          else
+            echo "❌ Default shell failed to build"
+            exit 1
+          fi
+          
+          # Test language-specific shells
+          for shell in python rust zig julia; do
+            echo "Testing $shell shell..."
+            if timeout 60 nix develop --no-pure-eval .#$shell --command echo "$shell shell works"; then
+              echo "✅ $shell shell builds successfully"
+            else
+              echo "❌ $shell shell failed to build"
+              exit 1
+            fi
+          done
+          
+          # Test devenv CLI integration
+          echo "Testing devenv CLI..."
+          if devenv test; then
+            echo "✅ devenv test passed"
+          else
+            echo "❌ devenv test failed"
+            exit 1
+          fi
+
   # Build validation
   build-validation:
     runs-on: ubuntu-latest
@@ -212,10 +260,24 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
     permissions:
       contents: read
     steps:
-uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Setup devenv cache
+        uses: cachix/cachix-action@v14
+        with:
+          name: devenv
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       - name: Build NixOS configuration
         run: |
@@ -243,10 +305,24 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
     permissions:
       contents: read
     steps:
-uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Setup devenv cache
+        uses: cachix/cachix-action@v14
+        with:
+          name: devenv
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       - name: Run validation checks
         run: |
@@ -267,7 +343,13 @@ uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596
       contents: read
       security-events: write
     steps:
-uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8

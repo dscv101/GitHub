@@ -3,12 +3,13 @@ _: {
     devenv.shells.rust = {
       name = "rust-dev";
 
-      # Disable containers to avoid the current directory issue
-      containers = {};
+      # Containers disabled for simplicity - can be enabled later if needed
+      # containers.enable = false; # Commented out due to type mismatch
 
       languages.rust = {
         enable = true;
-        channel = "stable";
+        # Note: Using default Rust toolchain from nixpkgs
+        # To use specific channels, add rust-overlay input to flake.nix
         components = ["rustc" "cargo" "clippy" "rustfmt" "rust-analyzer"];
       };
 
@@ -18,7 +19,7 @@ _: {
         pkgs.cargo-edit
         pkgs.cargo-audit
         pkgs.cargo-outdated
-        pkgs.cargo-tree
+        # pkgs.cargo-tree # Not available in current nixpkgs
         pkgs.cargo-expand
         pkgs.cargo-bloat
         pkgs.cargo-deny
