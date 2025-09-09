@@ -25,6 +25,7 @@ in {
     pkgs.pamixer                # PulseAudio mixer
     pkgs.networkmanagerapplet   # Network manager GUI
     pkgs.blueman                # Bluetooth manager
+    pkgs.power-profiles-daemon  # Power profile management
     
     # Additional utilities for quickshell
     pkgs.coreutils              # Basic system utilities (date, etc.)
@@ -144,6 +145,11 @@ in {
                     id: audioControl
                   }
                   
+                  // Power profile management
+                  Components.PowerProfile {
+                    id: powerProfile
+                  }
+                  
                   // Battery info
                   Rectangle {
                     width: 100
@@ -232,6 +238,7 @@ in {
     "quickshell/components/SystemMonitor.qml".source = ./quickshell/components/SystemMonitor.qml;
     "quickshell/components/AudioControl.qml".source = ./quickshell/components/AudioControl.qml;
     "quickshell/components/NetworkInfo.qml".source = ./quickshell/components/NetworkInfo.qml;
+    "quickshell/components/PowerProfile.qml".source = ./quickshell/components/PowerProfile.qml;
     "quickshell/components/SystemTray.qml".source = ./quickshell/components/SystemTray.qml;
   };
 

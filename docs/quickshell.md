@@ -57,6 +57,18 @@ Quickshell is a QML-based shell system that offers more flexibility and modern U
 - **AC Power**: Shows "AC" when plugged in
 - **Visual Indicators**: Different icons based on charge level
 
+### Power Profile Management
+- **Profile Display**: Shows current power profile (performance, balanced, power-saver)
+- **Profile Icons**: Visual indicators for each profile type
+  - ⚡ Performance (red) - Maximum performance
+  - ⚖ Balanced (yellow) - Balanced performance and efficiency
+  - 🔋 Power-saver (green) - Maximum battery life
+- **Mouse Controls**:
+  - Left click: Cycle through available power profiles
+  - Right click: Open power settings (GNOME Control Center)
+- **Automatic Detection**: Supports power-profiles-daemon and TLP
+- **Fallback Support**: Shows "N/A" when no power management is available
+
 ### System Tray
 - **StatusNotifierItem Support**: Compatible with modern system tray applications
 - **Interactive Icons**: Left-click activation, right-click context menus, middle-click secondary actions
@@ -120,6 +132,7 @@ The panel layout can be customized by modifying the QML structure:
 - `pamixer`: Audio mixer
 - `networkmanagerapplet`: Network management
 - `blueman`: Bluetooth management
+- `power-profiles-daemon`: Power profile management
 
 ## Service Management
 
@@ -212,7 +225,7 @@ Planned improvements:
 - [ ] Niri workspace integration
 - [x] System tray support
 - [ ] Bluetooth status widget
-- [ ] Power profile management
+- [x] Power profile management
 - [ ] Notification integration
 - [ ] Custom widget system
 - [ ] Configuration file support
