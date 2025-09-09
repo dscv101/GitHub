@@ -5,7 +5,7 @@
   ...
 }: let
   cfg = config.desktop.sddm;
-  astronautTheme = pkgs.callPackage ../../../pkgs/sddm-themes/astronaut.nix { };
+  astronautTheme = pkgs.callPackage ../../../pkgs/sddm-themes/astronaut.nix {};
 in {
   options.desktop.sddm = {
     enable = lib.mkEnableOption "Enable SDDM display manager";

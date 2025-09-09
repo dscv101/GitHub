@@ -10,17 +10,17 @@
         "margin-left": 10,
         "margin-right": 10,
         "reload_style_on_change": true,
-        
+
         "modules-left": [
           "niri/workspaces",
           "niri/mode",
           "niri/window"
         ],
-        
+
         "modules-center": [
           "clock"
         ],
-        
+
         "modules-right": [
           "idle_inhibitor",
           "temperature",

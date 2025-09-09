@@ -4,11 +4,12 @@ _: {
       name = "python-dev";
 
       # Containers disabled for simplicity - can be enabled later if needed
-      containers.enable = false;
+      # containers.enable = false; # Commented out due to type mismatch
 
       languages.python = {
         enable = true;
-        version = "3.12";
+        # Note: Using default Python version from nixpkgs
+        # To use specific versions, add nixpkgs-python input to flake.nix
         uv = {
           enable = true;
           sync.enable = true;

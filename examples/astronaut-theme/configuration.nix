@@ -1,9 +1,6 @@
 # Example configuration for using the Astronaut SDDM theme
 # This shows how to enable SDDM with the beautiful space-themed login screen
-
-{ config, pkgs, ... }:
-
-{
+{...}: {
   # Import the desktop modules (includes SDDM support)
   imports = [
     ../../modules/nixos/desktop
@@ -21,7 +18,7 @@
 
   # The astronaut theme works great with Wayland compositors
   # programs.niri.enable = true;  # Already enabled in desktop module
-  
+
   # Optional: Customize SDDM further
   # services.displayManager.sddm.settings = {
   #   Theme = {

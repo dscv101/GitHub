@@ -15,7 +15,7 @@
       name = "nix-blazar-dev";
 
       # Containers disabled for simplicity - can be enabled later if needed
-      containers.enable = false;
+      # containers.enable = false; # Commented out due to type mismatch
 
       packages = [
         # Version control
