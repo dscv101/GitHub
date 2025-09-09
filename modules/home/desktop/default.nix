@@ -7,6 +7,7 @@
     ./notifications.nix
     ./lockscreen.nix
     ./portals.nix
+    ./quickshell
   ];
 
   home.packages = [

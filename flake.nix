@@ -64,5 +64,11 @@
     mk-shell-bin = {
       url = "github:rrbutani/nix-mk-shell-bin";
     };
+
+    # Caelestia quickshell configuration
+    caelestia-shell = {
+      url = "github:caelestia-dots/shell";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 }
