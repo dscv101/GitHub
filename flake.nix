@@ -1,6 +1,11 @@
 {
   description = "nix-blazar: NixOS flake (flake-parts) for host blazar with Niri, Home Manager, NVIDIA (Wayland/GBM), sops-nix, disko, impermanence";
 
+  nixConfig = {
+    extra-trusted-public-keys = "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=";
+    extra-substituters = "https://devenv.cachix.org";
+  };
+
   outputs = inputs: inputs.flake-parts.lib.mkFlake {inherit inputs;} {imports = [./modules/flake/default.nix];};
 
   inputs = {
