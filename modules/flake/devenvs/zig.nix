@@ -3,8 +3,8 @@ _: {
     devenv.shells.zig = {
       name = "zig-dev";
 
-      # Disable containers to avoid the current directory issue
-      containers = {};
+      # Containers disabled for simplicity - can be enabled later if needed
+      containers.enable = false;
 
       languages.zig = {
         enable = true;
