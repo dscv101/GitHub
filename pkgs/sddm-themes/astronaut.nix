@@ -1,4 +1,5 @@
 {
+  lib,
   stdenv,
   fetchFromGitHub,
   kdePackages,
@@ -50,7 +51,7 @@ stdenv.mkDerivation rec {
     echo ${kdePackages.qtsvg} >> $out/nix-support/propagated-user-env-packages
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Astronaut theme for SDDM";
     homepage = "https://github.com/Keyitdev/sddm-astronaut-theme";
     license = licenses.gpl3Plus;
