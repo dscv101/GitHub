@@ -26,7 +26,8 @@ Quickshell is a QML-based shell system that offers more flexibility and modern U
 └── components/
     ├── SystemMonitor.qml  # System monitoring widgets
     ├── AudioControl.qml   # Audio volume control
-    └── NetworkInfo.qml    # Network status display
+    ├── NetworkInfo.qml    # Network status display
+    └── SystemTray.qml     # System tray implementation
 ```
 
 ## Features
@@ -55,6 +56,13 @@ Quickshell is a QML-based shell system that offers more flexibility and modern U
 - **Battery Level**: Percentage with appropriate icons
 - **AC Power**: Shows "AC" when plugged in
 - **Visual Indicators**: Different icons based on charge level
+
+### System Tray
+- **StatusNotifierItem Support**: Compatible with modern system tray applications
+- **Interactive Icons**: Left-click activation, right-click context menus, middle-click secondary actions
+- **Scroll Support**: Mouse wheel support for volume controls and similar applications
+- **Tooltips**: Hover tooltips showing application information
+- **Dynamic Updates**: Automatic addition/removal of tray items as applications start/stop
 
 ## Integration with Niri
 
@@ -202,7 +210,7 @@ When migrating from Waybar:
 Planned improvements:
 
 - [ ] Niri workspace integration
-- [ ] System tray support
+- [x] System tray support
 - [ ] Bluetooth status widget
 - [ ] Power profile management
 - [ ] Notification integration

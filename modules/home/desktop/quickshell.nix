@@ -30,6 +30,12 @@ in {
     pkgs.coreutils              # Basic system utilities (date, etc.)
     pkgs.procps                 # Process utilities (ps, top, etc.)
     pkgs.util-linux             # System utilities
+    
+    # System tray applications (optional, commonly used)
+    # These provide system tray functionality that users might want
+    # pkgs.pasystray            # PulseAudio system tray (uncomment if needed)
+    # pkgs.nm-tray              # NetworkManager system tray (uncomment if needed)
+    # pkgs.blueman              # Bluetooth manager with tray support (already included above)
   ];
 
   # Create quickshell configuration directory
@@ -154,20 +160,9 @@ in {
                     }
                   }
                   
-                  // System tray placeholder
-                  Rectangle {
-                    width: 60
-                    height: parent.height
-                    color: "#313244"
-                    radius: 8
-                    
-                    Text {
-                      anchors.centerIn: parent
-                      text: "Tray"
-                      color: "#cdd6f4"
-                      font.family: "JetBrainsMono Nerd Font"
-                      font.pixelSize: 10
-                    }
+                  // System tray
+                  Components.SystemTray {
+                    id: systemTray
                   }
                 }
               }
@@ -237,6 +232,7 @@ in {
     "quickshell/components/SystemMonitor.qml".source = ./quickshell/components/SystemMonitor.qml;
     "quickshell/components/AudioControl.qml".source = ./quickshell/components/AudioControl.qml;
     "quickshell/components/NetworkInfo.qml".source = ./quickshell/components/NetworkInfo.qml;
+    "quickshell/components/SystemTray.qml".source = ./quickshell/components/SystemTray.qml;
   };
 
   # Enable quickshell service (will be managed by the window manager)
