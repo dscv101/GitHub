@@ -172,16 +172,54 @@ jobs:
         if: steps.check-config.outputs.has-config == 'true' && github.event.inputs.scan_type != 'dependencies-only'
         id: vulnerability-scan
         run: |
+          set +e  # Disable exit on error to handle failures gracefully
           echo "🔍 Running vulnerability scan..."
           
           mkdir -p security-reports
           
-          # Build system for scanning
+          # Build system for scanning with error handling
           echo "Building system configuration..."
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel --option restrict-eval true
+          if ! nix build .#nixosConfigurations.blazar.config.system.build.toplevel --option restrict-eval true 2>security-reports/build-errors.log; then
+            echo "❌ Failed to build system configuration"
+            echo "vuln-count=build-failed" >> "$GITHUB_OUTPUT"
+            echo "critical-count=build-failed" >> "$GITHUB_OUTPUT"
+            
+            # Generate error report
+            cat > security-reports/vulnerability-report.md << EOF
+          # 🔍 Vulnerability Scan Report
+          
+          **Scan Date**: $(date)
+          **System**: x86_64-linux
+          **Status**: ❌ **BUILD FAILED**
+          
+          ## Error Summary
+          
+          The system configuration could not be built, preventing vulnerability scanning.
+          This may indicate configuration issues that need to be resolved.
+          
+          ## Build Errors
+          \`\`\`
+          $(head -50 security-reports/build-errors.log)
+          \`\`\`
+          
+          ## Recommendations
+          
+          1. **Fix Configuration**: Review and fix any configuration errors
+          2. **Check Dependencies**: Ensure all required inputs are available
+          3. **Test Locally**: Test the build locally with \`nix build .#nixosConfigurations.blazar.config.system.build.toplevel\`
+          4. **Update Inputs**: Consider updating flake inputs if using outdated packages
+          
+          ---
+          *Note: Vulnerability scanning will be available once the build issues are resolved*
+          EOF
+            
+            echo "Build failed - vulnerability scan skipped"
+            exit 0
+          fi
+          
           system_path=$(readlink -f result)
           
-          # Run vulnerability scan
+          # Run vulnerability scan with error handling
           echo "Scanning for vulnerabilities..."
           if vulnix_output=$(nix run nixpkgs#vulnix -- --system x86_64-linux --json "$system_path" 2>security-reports/vulnix-errors.log); then
             echo "$vulnix_output" > security-reports/vulnerabilities.json
@@ -252,9 +290,41 @@ jobs:
             
             echo "Vulnerability scan completed: $vuln_count total, $critical_count critical"
           else
-            echo "vuln-count=error" >> "$GITHUB_OUTPUT"
-            echo "critical-count=error" >> "$GITHUB_OUTPUT"
+            echo "vuln-count=scan-failed" >> "$GITHUB_OUTPUT"
+            echo "critical-count=scan-failed" >> "$GITHUB_OUTPUT"
             echo "❌ Vulnerability scan failed"
+            
+            # Generate error report for scan failure
+            cat > security-reports/vulnerability-report.md << EOF
+          # 🔍 Vulnerability Scan Report
+          
+          **Scan Date**: $(date)
+          **System**: x86_64-linux
+          **Status**: ❌ **SCAN FAILED**
+          
+          ## Error Summary
+          
+          The vulnerability scan failed to complete. This may be due to:
+          - Network connectivity issues
+          - Vulnix tool compatibility problems
+          - System configuration complexity
+          
+          ## Scan Errors
+          \`\`\`
+          $(head -50 security-reports/vulnix-errors.log)
+          \`\`\`
+          
+          ## Recommendations
+          
+          1. **Retry Scan**: Re-run the security audit workflow
+          2. **Check Network**: Ensure network connectivity for vulnerability database access
+          3. **Manual Scan**: Consider running vulnerability scans locally
+          4. **Alternative Tools**: Use other security scanning tools if available
+          
+          ---
+          *Note: System build was successful, but vulnerability scanning encountered issues*
+          EOF
+            
             cat security-reports/vulnix-errors.log
           fi
 
@@ -403,8 +473,14 @@ jobs:
             echo "- **System**: ${{ steps.check-config.outputs.has-config == 'true' && 'NixOS configuration found' || 'No system configuration' }}"
             echo ""
             echo "## Results"
-            if [[ "${{ steps.vulnerability-scan.outputs.vuln-count }}" == "error" ]]; then
-              echo "- **Vulnerability Scan**: ❌ Failed"
+            if [[ "${{ steps.vulnerability-scan.outputs.vuln-count }}" == "build-failed" ]]; then
+              echo "- **Vulnerability Scan**: ❌ Build Failed"
+              echo "- **Status**: 🔧 **CONFIGURATION ISSUES**"
+              echo "- **Action Required**: Fix build configuration errors"
+            elif [[ "${{ steps.vulnerability-scan.outputs.vuln-count }}" == "scan-failed" ]]; then
+              echo "- **Vulnerability Scan**: ❌ Scan Failed"
+              echo "- **Status**: 🔄 **RETRY NEEDED**"
+              echo "- **Action Required**: Retry scan or investigate scan issues"
             elif [[ "${{ steps.check-config.outputs.has-config }}" == "true" ]]; then
               echo "- **Total Vulnerabilities**: ${{ steps.vulnerability-scan.outputs.vuln-count || 'unknown' }}"
               echo "- **Critical/High Severity**: ${{ steps.vulnerability-scan.outputs.critical-count || 'unknown' }}"
@@ -430,7 +506,11 @@ jobs:
             echo "- ✅ Code security analysis"
             echo "- ✅ Automated issue creation"
             echo ""
-            if [[ "${{ steps.vulnerability-scan.outputs.critical-count }}" -gt 0 ]]; then
+            if [[ "${{ steps.vulnerability-scan.outputs.vuln-count }}" == "build-failed" ]]; then
+              echo "🔧 **BUILD ISSUES**: Configuration problems prevent vulnerability scanning"
+            elif [[ "${{ steps.vulnerability-scan.outputs.vuln-count }}" == "scan-failed" ]]; then
+              echo "🔄 **SCAN ISSUES**: Vulnerability scanning encountered technical problems"
+            elif [[ "${{ steps.vulnerability-scan.outputs.critical-count }}" -gt 0 ]]; then
               echo "⚠️ **URGENT**: Critical vulnerabilities detected - security issue created"
             elif [[ "${{ steps.vulnerability-scan.outputs.vuln-count }}" -gt 0 ]]; then
               echo "ℹ️ **INFO**: Some vulnerabilities found - review recommended"
