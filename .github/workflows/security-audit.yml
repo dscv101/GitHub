@@ -77,7 +77,6 @@ jobs:
       # ENHANCED: Comprehensive dependency security audit
       - name: Dependency security audit
         if: github.event.inputs.scan_type != 'vulnerabilities-only'
-        shell: bash
         run: |
           set +e  # Disable exit on error to handle errors gracefully
           echo "🔍 Auditing flake dependencies..."
