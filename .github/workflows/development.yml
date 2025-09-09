@@ -1,0 +1,454 @@
+name: Development - Shell & Testing
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+# SECURITY: Minimal permissions, explicit per-job
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # SECURITY: Secure Nix evaluation
+  NIX_CONFIG: |
+    extra-experimental-features = nix-command flakes
+    sandbox = true
+    max-jobs = auto
+    keep-outputs = true
+    keep-derivations = true
+
+jobs:
+  # Validate development shells
+  validate-devshells:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      has-devshells: ${{ steps.detect-devshells.outputs.has-devshells }}
+      devshell-systems: ${{ steps.detect-devshells.outputs.systems }}
+      devshell-names: ${{ steps.detect-devshells.outputs.names }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Detect development shells
+        id: detect-devshells
+        run: |
+          echo "🔍 Detecting development shells..."
+          
+          if [[ -f flake.nix ]]; then
+            # Check if devShells exist
+            if nix flake show --json . 2>/dev/null | jq -e '.devShells' >/dev/null; then
+              echo "has-devshells=true" >> $GITHUB_OUTPUT
+              echo "✅ Development shells detected"
+              
+              # Get available systems
+              systems=$(nix flake show --json . | jq -r '.devShells | keys | @json')
+              echo "systems=$systems" >> $GITHUB_OUTPUT
+              echo "Available systems: $systems"
+              
+              # Get shell names for x86_64-linux (most common)
+              if nix flake show --json . | jq -e '.devShells."x86_64-linux"' >/dev/null 2>&1; then
+                names=$(nix flake show --json . | jq -r '.devShells."x86_64-linux" | keys | @json')
+                echo "names=$names" >> $GITHUB_OUTPUT
+                echo "Available shells: $names"
+              else
+                echo "names=[]" >> $GITHUB_OUTPUT
+                echo "No shells found for x86_64-linux"
+              fi
+            else
+              echo "has-devshells=false" >> $GITHUB_OUTPUT
+              echo "❌ No development shells found"
+            fi
+          else
+            echo "has-devshells=false" >> $GITHUB_OUTPUT
+            echo "❌ No flake.nix found"
+          fi
+
+      - name: Validate flake-parts devShell compliance
+        if: steps.detect-devshells.outputs.has-devshells == 'true'
+        run: |
+          echo "🔍 Validating flake-parts devShell compliance..."
+          
+          # Check if devShells are defined in perSystem (organization requirement)
+          if grep -r "perSystem" flake.nix && grep -A 10 -B 10 "perSystem" flake.nix | grep -q "devShells"; then
+            echo "✅ devShells defined in perSystem (organization compliant)"
+          else
+            echo "⚠️  devShells may not be defined in perSystem - check organization compliance"
+          fi
+          
+          # Check for default devShell
+          if nix flake show --json . | jq -e '.devShells."x86_64-linux".default' >/dev/null 2>&1; then
+            echo "✅ Default development shell available"
+          else
+            echo "⚠️  No default development shell found"
+          fi
+
+  # Test development shells across systems
+  test-devshells:
+    runs-on: ubuntu-latest
+    needs: validate-devshells
+    if: needs.validate-devshells.outputs.has-devshells == 'true'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.validate-devshells.outputs.devshell-systems) }}
+        shell: ${{ fromJson(needs.validate-devshells.outputs.devshell-names) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Test development shell - ${{ matrix.shell }} on ${{ matrix.system }}
+        run: |
+          echo "🧪 Testing development shell: ${{ matrix.shell }} on ${{ matrix.system }}"
+          
+          # Skip if shell doesn't exist for this system
+          if ! nix flake show --json . | jq -e '.devShells."${{ matrix.system }}"."${{ matrix.shell }}"' >/dev/null 2>&1; then
+            echo "⏭️  Shell ${{ matrix.shell }} not available for ${{ matrix.system }}"
+            exit 0
+          fi
+          
+          # Test shell activation
+          nix develop ".#devShells.${{ matrix.system }}.${{ matrix.shell }}" --command bash -c "
+            echo '✅ Development shell activated successfully'
+            echo 'Shell: ${{ matrix.shell }}'
+            echo 'System: ${{ matrix.system }}'
+            echo ''
+            echo 'Environment check:'
+            echo 'PATH length:' \$(echo \$PATH | tr ':' '\n' | wc -l)
+            echo 'NIX_* variables:' \$(env | grep '^NIX_' | wc -l)
+            echo ''
+            echo 'Available tools:'
+            command -v nix >/dev/null && echo '  ✅ nix' || echo '  ❌ nix'
+            command -v jj >/dev/null && echo '  ✅ jj (jujitsu)' || echo '  ❌ jj (jujitsu)'
+            command -v just >/dev/null && echo '  ✅ just' || echo '  ❌ just'
+            command -v direnv >/dev/null && echo '  ✅ direnv' || echo '  ❌ direnv'
+            command -v git >/dev/null && echo '  ✅ git' || echo '  ❌ git'
+          "
+
+      - name: Test shell build
+        run: |
+          echo "🔨 Testing shell build for ${{ matrix.shell }} on ${{ matrix.system }}"
+          
+          # Build the development shell
+          if nix flake show --json . | jq -e '.devShells."${{ matrix.system }}"."${{ matrix.shell }}"' >/dev/null 2>&1; then
+            nix build ".#devShells.${{ matrix.system }}.${{ matrix.shell }}" --print-build-logs
+            echo "✅ Shell build successful"
+          else
+            echo "⏭️  Shell not available for this system"
+          fi
+
+  # Test development workflows
+  test-dev-workflows:
+    runs-on: ubuntu-latest
+    needs: validate-devshells
+    if: needs.validate-devshells.outputs.has-devshells == 'true'
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Install Jujitsu for workflow testing
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          cargo install --locked jj-cli
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure Jujitsu
+        run: |
+          jj config set --user user.name "Dev Workflow Test"
+          jj config set --user user.email "test@github.com"
+
+      - name: Initialize Jujitsu repository
+        run: |
+          if [[ ! -d .jj ]]; then
+            jj git init --colocate
+          fi
+
+      - name: Test development workflow with Jujitsu
+        run: |
+          echo "🔄 Testing development workflow with Jujitsu..."
+          
+          # Test basic Jujitsu operations in development shell
+          nix develop --command bash -c "
+            echo 'Testing Jujitsu operations in development shell...'
+            
+            # Test jj status
+            if command -v jj >/dev/null; then
+              jj status
+              echo '✅ jj status works in development shell'
+            else
+              echo '⚠️  jj not available in development shell'
+            fi
+            
+            # Test basic development commands
+            if command -v nix >/dev/null; then
+              nix --version
+              echo '✅ nix available in development shell'
+            fi
+            
+            # Test if we can run nix commands
+            nix flake check --no-build 2>/dev/null && echo '✅ nix flake check works' || echo '⚠️  nix flake check failed'
+          "
+
+      - name: Test direnv integration
+        run: |
+          echo "📁 Testing direnv integration..."
+          
+          # Check if .envrc exists
+          if [[ -f .envrc ]]; then
+            echo "✅ .envrc found"
+            
+            # Install direnv if not available
+            if ! command -v direnv >/dev/null; then
+              nix run nixpkgs#direnv -- version
+            fi
+            
+            # Test direnv allow (in development shell)
+            nix develop --command bash -c "
+              if command -v direnv >/dev/null; then
+                direnv allow . 2>/dev/null || echo 'direnv allow completed (may have warnings)'
+                echo '✅ direnv integration tested'
+              else
+                echo '⚠️  direnv not available in development shell'
+              fi
+            "
+          else
+            echo "ℹ️  No .envrc found - direnv integration not configured"
+          fi
+
+      - name: Test Just command runner
+        run: |
+          echo "⚡ Testing Just command runner..."
+          
+          # Check if Justfile exists
+          if [[ -f Justfile || -f justfile ]]; then
+            echo "✅ Justfile found"
+            
+            # Test just in development shell
+            nix develop --command bash -c "
+              if command -v just >/dev/null; then
+                just --list 2>/dev/null || echo 'just --list completed'
+                echo '✅ just command runner available'
+              else
+                echo '⚠️  just not available in development shell'
+              fi
+            "
+          else
+            echo "ℹ️  No Justfile found - just integration not configured"
+          fi
+
+  # Validate development environment consistency
+  validate-dev-consistency:
+    runs-on: ubuntu-latest
+    needs: validate-devshells
+    if: needs.validate-devshells.outputs.has-devshells == 'true'
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Check development environment consistency
+        run: |
+          echo "🔍 Checking development environment consistency..."
+          
+          # Check if all required tools are available in default shell
+          if nix flake show --json . | jq -e '.devShells."x86_64-linux".default' >/dev/null 2>&1; then
+            echo "Testing default development shell consistency..."
+            
+            nix develop --command bash -c "
+              echo 'Required tools check:'
+              
+              # Organization requirements check
+              tools_missing=0
+              
+              # Check for Nix (should always be available)
+              if command -v nix >/dev/null; then
+                echo '  ✅ nix: available'
+              else
+                echo '  ❌ nix: missing'
+                ((tools_missing++))
+              fi
+              
+              # Check for development tools commonly expected
+              for tool in git curl wget; do
+                if command -v \$tool >/dev/null; then
+                  echo \"  ✅ \$tool: available\"
+                else
+                  echo \"  ⚠️  \$tool: not available\"
+                fi
+              done
+              
+              # Check for Jujitsu (organization requirement)
+              if command -v jj >/dev/null; then
+                echo '  ✅ jj (jujitsu): available'
+              else
+                echo '  ⚠️  jj (jujitsu): not available - may need to be added to devShell'
+              fi
+              
+              echo \"\"
+              echo \"Tools missing: \$tools_missing\"
+              
+              if [[ \$tools_missing -gt 0 ]]; then
+                echo '⚠️  Some required tools are missing from development shell'
+                exit 1
+              else
+                echo '✅ All required tools are available'
+              fi
+            "
+          else
+            echo "⚠️  No default development shell found"
+          fi
+
+      - name: Validate shell reproducibility
+        run: |
+          echo "🔄 Validating shell reproducibility..."
+          
+          # Build shell twice and compare
+          if nix flake show --json . | jq -e '.devShells."x86_64-linux".default' >/dev/null 2>&1; then
+            echo "Building development shell (first time)..."
+            nix build ".#devShells.x86_64-linux.default" -o result-1
+            
+            echo "Building development shell (second time)..."
+            nix build ".#devShells.x86_64-linux.default" -o result-2
+            
+            # Compare results
+            if [[ -L result-1 && -L result-2 ]]; then
+              path1=$(readlink result-1)
+              path2=$(readlink result-2)
+              
+              if [[ "$path1" == "$path2" ]]; then
+                echo "✅ Development shell is reproducible"
+              else
+                echo "⚠️  Development shell may not be reproducible"
+                echo "  First build: $path1"
+                echo "  Second build: $path2"
+              fi
+            else
+              echo "⚠️  Could not verify reproducibility"
+            fi
+          else
+            echo "⏭️  No default development shell to test"
+          fi
+
+  # Development summary
+  development-summary:
+    runs-on: ubuntu-latest
+    needs: [validate-devshells, test-devshells, test-dev-workflows, validate-dev-consistency]
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - name: Development Summary
+        run: |
+          echo "## 🛠️  Development Summary"
+          echo ""
+          echo "### Development Shell Validation"
+          if [[ "${{ needs.validate-devshells.result }}" == "success" ]]; then
+            echo "✅ Development shell validation successful"
+            echo "  - Has dev shells: ${{ needs.validate-devshells.outputs.has-devshells }}"
+            echo "  - Available systems: ${{ needs.validate-devshells.outputs.devshell-systems }}"
+            echo "  - Available shells: ${{ needs.validate-devshells.outputs.devshell-names }}"
+          else
+            echo "❌ Development shell validation failed"
+          fi
+          
+          echo ""
+          echo "### Development Shell Testing"
+          if [[ "${{ needs.test-devshells.result }}" == "success" ]]; then
+            echo "✅ Development shell testing successful"
+          elif [[ "${{ needs.test-devshells.result }}" == "skipped" ]]; then
+            echo "⏭️  Development shell testing skipped (no dev shells)"
+          else
+            echo "❌ Development shell testing failed"
+          fi
+          
+          echo ""
+          echo "### Development Workflow Testing"
+          if [[ "${{ needs.test-dev-workflows.result }}" == "success" ]]; then
+            echo "✅ Development workflow testing successful"
+          elif [[ "${{ needs.test-dev-workflows.result }}" == "skipped" ]]; then
+            echo "⏭️  Development workflow testing skipped (no dev shells)"
+          else
+            echo "❌ Development workflow testing failed"
+          fi
+          
+          echo ""
+          echo "### Development Environment Consistency"
+          if [[ "${{ needs.validate-dev-consistency.result }}" == "success" ]]; then
+            echo "✅ Development environment consistency validated"
+          elif [[ "${{ needs.validate-dev-consistency.result }}" == "skipped" ]]; then
+            echo "⏭️  Development environment consistency skipped (no dev shells)"
+          else
+            echo "❌ Development environment consistency validation failed"
+          fi
+          
+          echo ""
+          echo "### Overall Development Status"
+          failed_jobs=0
+          
+          # Check each job result individually (avoiding bash variable name issues with hyphens)
+          if [[ "${{ needs.validate-devshells.result }}" != "success" && "${{ needs.validate-devshells.result }}" != "skipped" ]]; then
+            ((failed_jobs++))
+          fi
+          if [[ "${{ needs.test-devshells.result }}" != "success" && "${{ needs.test-devshells.result }}" != "skipped" ]]; then
+            ((failed_jobs++))
+          fi
+          if [[ "${{ needs.test-dev-workflows.result }}" != "success" && "${{ needs.test-dev-workflows.result }}" != "skipped" ]]; then
+            ((failed_jobs++))
+          fi
+          if [[ "${{ needs.validate-dev-consistency.result }}" != "success" && "${{ needs.validate-dev-consistency.result }}" != "skipped" ]]; then
+            ((failed_jobs++))
+          fi
+          
+          if [[ $failed_jobs -eq 0 ]]; then
+            echo "🎉 All development checks passed!"
+          else
+            echo "⚠️  $failed_jobs development check(s) failed - review required"
+          fi

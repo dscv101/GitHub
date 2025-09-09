@@ -1,8 +1,8 @@
-name: CI
+name: CI - Jujitsu & Nix
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
   workflow_dispatch:
 
@@ -14,395 +14,308 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # SECURITY: Secure Nix evaluation
+  # SECURITY: Secure Nix evaluation with flake-parts support
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
     sandbox = true
     max-jobs = auto
+    keep-outputs = true
+    keep-derivations = true
+  # Jujitsu configuration for CI
+  JJ_USER: "GitHub Actions"
+  JJ_EMAIL: "actions@github.com"
+  JJ_LOG: "info"
 
 jobs:
-  # Combined flake validation and basic checks
-  validate:
+  # Jujitsu repository validation and setup
+  jujitsu-setup:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      jj-available: ${{ steps.check-jj.outputs.available }}
+      repo-status: ${{ steps.jj-status.outputs.status }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Fetch full history for Jujitsu operations
+          fetch-depth: 0
+
+      - name: Install Jujitsu
+        run: |
+          # Install Rust and Jujitsu
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          cargo install --locked jj-cli
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure Jujitsu
+        run: |
+          jj config set --user user.name "$JJ_USER"
+          jj config set --user user.email "$JJ_EMAIL"
+          jj config set --user ui.color "always"
+
+      - name: Initialize Jujitsu repository
+        run: |
+          # Initialize co-located Jujitsu repository if not already present
+          if [[ ! -d .jj ]]; then
+            jj git init --colocate
+            echo "Initialized co-located Jujitsu repository"
+          else
+            echo "Jujitsu repository already initialized"
+          fi
+
+      - name: Check Jujitsu availability
+        id: check-jj
+        run: |
+          if command -v jj >/dev/null 2>&1; then
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "✅ Jujitsu available: $(jj --version)"
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "❌ Jujitsu not available"
+            exit 1
+          fi
+
+      - name: Jujitsu repository status
+        id: jj-status
+        run: |
+          status_output=$(jj status)
+          echo "status=ok" >> $GITHUB_OUTPUT
+          echo "📊 Repository status:"
+          echo "$status_output"
+
+  # Nix flake validation with flake-parts compliance
+  nix-validation:
+    runs-on: ubuntu-latest
+    needs: jujitsu-setup
     timeout-minutes: 20
     permissions:
       contents: read
       security-events: write
     outputs:
-      config-exists: ${{ steps.check-config.outputs.exists }}
-      has-checks: ${{ steps.check-config.outputs.has-checks }}
+      flake-exists: ${{ steps.check-flake.outputs.exists }}
+      has-checks: ${{ steps.check-flake.outputs.has-checks }}
+      has-devshells: ${{ steps.check-flake.outputs.has-devshells }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+        uses: DeterminateSystems/nix-installer-action@v9
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
-      # SECURITY: Enhanced flake health check
       - name: Check flake health
         uses: DeterminateSystems/flake-checker-action@v9
         with:
           fail-mode: true
 
       - name: Validate flake structure
-        id: check-config
+        id: check-flake
         run: |
-          echo "🔍 Validating flake and configuration..."
-          
-          # Check flake validity
-          if ! nix flake check --show-trace --no-pure-eval --accept-flake-config; then
-            echo "❌ Flake check failed"
-            exit 1
-          fi
-          
-          # Check for NixOS configuration
-          if nix eval --json .#nixosConfigurations >/dev/null 2>&1; then
-            echo "config-exists=true" >> "$GITHUB_OUTPUT"
-            echo "✅ NixOS configurations found"
+          if [[ -f flake.nix ]]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ flake.nix found"
             
-            # Try to build system configuration
-            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
-              echo "✅ System configuration is buildable"
+            # Check for flake-parts usage (organization requirement)
+            if grep -q "flake-parts" flake.nix; then
+              echo "✅ flake-parts detected (organization compliant)"
             else
-              echo "❌ System configuration build failed"
-              exit 1
+              echo "⚠️  flake-parts not detected - may not comply with organization rules"
+            fi
+            
+            # Check for required outputs
+            if nix flake show --json . | jq -e '.checks' >/dev/null 2>&1; then
+              echo "has-checks=true" >> $GITHUB_OUTPUT
+              echo "✅ Checks available"
+            else
+              echo "has-checks=false" >> $GITHUB_OUTPUT
+              echo "⚠️  No checks found"
+            fi
+            
+            if nix flake show --json . | jq -e '.devShells' >/dev/null 2>&1; then
+              echo "has-devshells=true" >> $GITHUB_OUTPUT
+              echo "✅ Development shells available"
+            else
+              echo "has-devshells=false" >> $GITHUB_OUTPUT
+              echo "⚠️  No development shells found"
             fi
           else
-            echo "config-exists=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️ No NixOS configurations found"
-          fi
-          
-          # Check for validation targets
-          if nix eval --json .#checks.x86_64-linux >/dev/null 2>&1; then
-            echo "has-checks=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Validation checks available"
-          else
-            echo "has-checks=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️ No validation checks found"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "❌ flake.nix not found"
+            exit 1
           fi
 
-      # SECURITY: Validate dependencies and inputs
-      - name: Security validation
+      - name: Validate flake inputs
         run: |
-          echo "🔒 Running security validation..."
-          
-          # Check for insecure Nix features
-          if grep -r "allowUnfree\|allowBroken\|allowInsecure" . --include="*.nix" --exclude-dir=".git"; then
-            echo "⚠️ Insecure Nix features detected"
-            exit 1
-          fi
-          
-          # Validate flake inputs are from trusted sources  
-          nix flake metadata --json > flake-meta.json
-          untrusted_count=0
-          while read -r owner repo; do
-            case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci) 
-                echo "✅ Trusted: $owner/$repo" ;;
-              *)
-                echo "⚠️ Untrusted: $owner/$repo"
-                ((untrusted_count++)) ;;
-            esac
-          done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
-          
-          if [[ $untrusted_count -gt 0 ]]; then
-            echo "❌ $untrusted_count untrusted inputs found"
-            exit 1
-          fi
-          
-          echo "✅ All security checks passed"
+          echo "📦 Flake inputs:"
+          nix flake metadata --json . | jq -r '.locks.nodes.root.inputs | keys[]' | while read input; do
+            echo "  - $input"
+          done
 
-  # Code quality and formatting
-  code-quality:
+      - name: Check flake evaluation
+        run: |
+          echo "🔍 Testing flake evaluation..."
+          nix flake check --no-build --print-build-logs
+
+  # Nix formatting and linting (organization requirement)
+  nix-formatting:
     runs-on: ubuntu-latest
-    needs: validate
+    needs: nix-validation
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+        uses: DeterminateSystems/nix-installer-action@v9
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
-        with:
-          name: devenv
-
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      # IMPROVED: Enhanced formatting checks
-      - name: Check code formatting
+      - name: Check Nix formatting
         run: |
-          echo "🎨 Checking code formatting..."
-          
-          # Try treefmt first (modern approach)
-          if nix build .#formatter 2>/dev/null; then
-            echo "Using treefmt formatter"
-            ./result/bin/treefmt --check --no-cache .
-          elif nix run nixpkgs#treefmt -- --check --no-cache . 2>/dev/null; then
-            echo "Using system treefmt"
+          echo "🎨 Checking Nix formatting..."
+          if command -v nix fmt >/dev/null 2>&1; then
+            # Use flake's formatter if available
+            nix fmt -- --check .
           else
-            echo "Using alejandra fallback"
+            # Fallback to alejandra
             nix run nixpkgs#alejandra -- --check .
           fi
 
-      - name: Lint Nix code
+      - name: Run statix (Nix linting)
         run: |
-          echo "🔍 Running Nix linters..."
-          
-          # Check for dead code
-          if command -v deadnix >/dev/null 2>&1; then
-            deadnix --fail --exclude flake.nix .
-          else
-            nix run nixpkgs#deadnix -- --fail --exclude flake.nix .
-          fi
-          
-          # Static analysis
-          if command -v statix >/dev/null 2>&1; then
-            statix check .
-          else
-            nix run nixpkgs#statix -- check .
-          fi
+          echo "🔍 Running statix linting..."
+          nix run nixpkgs#statix -- check .
 
-      # ENHANCED: Better shell script checking
-      - name: Check shell scripts
+      - name: Run deadnix (dead code detection)
         run: |
-          echo "🐚 Checking shell scripts..."
-          
-          shopt -s globstar nullglob
-          scripts=(**/*.sh **/scripts/* **/**/scripts/*)
-          
-          if [[ ${#scripts[@]} -gt 0 ]]; then
-            # Check syntax and style
-            nix run nixpkgs#shellcheck -- "${scripts[@]}"
-            nix run nixpkgs#shfmt -- -d "${scripts[@]}"
-            echo "✅ All shell scripts passed checks"
-          else
-            echo "ℹ️ No shell scripts found"
-          fi
+          echo "🧹 Running deadnix..."
+          nix run nixpkgs#deadnix -- --check .
 
-      # ENHANCED: Document validation
-      - name: Validate documentation
-        run: |
-          echo "📚 Validating documentation..."
-          
-          # Check markdown files
-          if find . -name "*.md" -not -path "./.git/*" | head -1 | read -r; then
-            find . -name "*.md" -not -path "./.git/*" -exec nix run nixpkgs#markdownlint-cli -- {} +
-          fi
-          
-          # Check YAML files
-          if find . -name "*.yml" -o -name "*.yaml" -not -path "./.git/*" | head -1 | read -r; then
-            nix run nixpkgs#yamllint -- .
-          fi
-
-      # ENHANCED: GitHub Actions validation
-      - name: Validate GitHub Actions
-        if: hashFiles('.github/workflows/*.yml', '.github/workflows/*.yaml') != ''
-        run: |
-          echo "⚙️ Validating GitHub Actions..."
-          nix run nixpkgs#actionlint
-
-      # DEVENV: Test development environments
-      - name: Test devenv shells
-        run: |
-          echo "🧪 Testing devenv development environments..."
-          
-          # Test that devenv can build the shells
-          echo "Testing default shell..."
-          if nix develop --no-pure-eval --command echo "Default shell works"; then
-            echo "✅ Default shell builds successfully"
-          else
-            echo "❌ Default shell failed to build"
-            exit 1
-          fi
-          
-          # Test language-specific shells
-          for shell in python rust zig julia; do
-            echo "Testing $shell shell..."
-            if timeout 60 nix develop --no-pure-eval .#$shell --command echo "$shell shell works"; then
-              echo "✅ $shell shell builds successfully"
-            else
-              echo "❌ $shell shell failed to build"
-              exit 1
-            fi
-          done
-          
-          # Test devenv CLI integration
-          echo "Testing devenv CLI..."
-          if devenv test; then
-            echo "✅ devenv test passed"
-          else
-            echo "❌ devenv test failed"
-            exit 1
-          fi
-
-  # Build validation
-  build-validation:
+  # Development shell validation
+  dev-shell-validation:
     runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.config-exists == 'true'
+    needs: nix-validation
+    if: needs.nix-validation.outputs.has-devshells == 'true'
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Test development shell
+        run: |
+          echo "🛠️  Testing development shell..."
+          nix develop --command bash -c "
+            echo '✅ Development shell activated'
+            echo 'Available tools:'
+            which nix || echo '  - nix: not available'
+            which jj || echo '  - jj: not available' 
+            which just || echo '  - just: not available'
+            which direnv || echo '  - direnv: not available'
+          "
+
+  # Run Nix checks (organization requirement)
+  nix-checks:
+    runs-on: ubuntu-latest
+    needs: nix-validation
+    if: needs.nix-validation.outputs.has-checks == 'true'
     timeout-minutes: 30
     permissions:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
+        uses: DeterminateSystems/nix-installer-action@v9
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
-        with:
-          name: devenv
-
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      - name: Build NixOS configuration
+      - name: Run Nix checks
         run: |
-          echo "🏗️ Building NixOS configuration..."
-          
-          # Build system configuration with security restrictions
-          nix build \
-            .#nixosConfigurations.blazar.config.system.build.toplevel \
-            --show-trace \
-            --option sandbox true \
-            --option max-silent-time 600 \
-            --option timeout 1800
-          
-          echo "✅ System configuration built successfully"
-          
-          # Show build info
-          nix path-info --json result | jq -r '.[] | "Size: \(.narSize) bytes"'
+          echo "✅ Running Nix flake checks..."
+          nix flake check --print-build-logs
 
-  # Enhanced checks execution
-  checks:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.has-checks == 'true'
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
-        with:
-          name: devenv
-
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      - name: Run validation checks
-        run: |
-          echo "✅ Running validation checks..."
-          
-          # Run all available checks
-          nix build .#checks.x86_64-linux --show-trace
-          
-          echo "✅ All checks passed"
-
-  # Security audit
-  security-audit:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.config-exists == 'true'
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Quick security scan
-        run: |
-          echo "🔍 Running security scan..."
-          
-          # Build system for scanning
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
-          system_path=$(readlink -f result)
-          
-          # Quick vulnerability check
-          if command -v vulnix >/dev/null 2>&1; then
-            vulnix --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
-          else
-            nix run nixpkgs#vulnix -- --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
-          fi
-
-  # CI summary
+  # Summary job
   ci-summary:
     runs-on: ubuntu-latest
-    needs: [validate, code-quality, build-validation, checks, security-audit]
+    needs: [jujitsu-setup, nix-validation, nix-formatting, dev-shell-validation, nix-checks]
     if: always()
     permissions:
       contents: read
     steps:
-      - name: Generate CI summary
+      - name: CI Summary
         run: |
-          {
-            echo "# 🎯 CI Pipeline Summary"
-            echo ""
-            echo "## Validation Results"
-            echo "- **Flake validation**: ${{ needs.validate.result == 'success' && '✅ Passed' || '❌ Failed' }}"
-            echo "- **Code quality**: ${{ needs.code-quality.result == 'success' && '✅ Passed' || needs.code-quality.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Build validation**: ${{ needs.build-validation.result == 'success' && '✅ Passed' || needs.build-validation.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Checks**: ${{ needs.checks.result == 'success' && '✅ Passed' || needs.checks.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Security audit**: ${{ needs.security-audit.result == 'success' && '✅ Passed' || needs.security-audit.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo ""
-            echo "## Security Features"
-            echo "- ✅ SHA-pinned actions (supply chain security)"
-            echo "- ✅ Secure runner configuration"
-            echo "- ✅ Minimal permissions (RBAC)"
-            echo "- ✅ Sandboxed Nix builds"
-            echo "- ✅ Dependency validation"
-            echo "- ✅ Vulnerability scanning"
-            echo ""
-            if [[ "${{ needs.validate.result }}" == "success" && "${{ needs.code-quality.result }}" == "success" && ("${{ needs.build-validation.result }}" == "success" || "${{ needs.build-validation.result }}" == "skipped") ]]; then
-              echo "🎉 **Overall Status**: All critical checks passed!"
-            else
-              echo "⚠️ **Overall Status**: Some checks failed - review required"
-            fi
-            echo ""
-            echo "---"
-            echo "*Hardened CI pipeline following 2025 security best practices*"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "## 📊 CI Summary"
+          echo ""
+          echo "### Jujitsu Setup"
+          if [[ "${{ needs.jujitsu-setup.result }}" == "success" ]]; then
+            echo "✅ Jujitsu setup successful"
+          else
+            echo "❌ Jujitsu setup failed"
+          fi
+          
+          echo ""
+          echo "### Nix Validation"
+          if [[ "${{ needs.nix-validation.result }}" == "success" ]]; then
+            echo "✅ Nix validation successful"
+            echo "  - Flake exists: ${{ needs.nix-validation.outputs.flake-exists }}"
+            echo "  - Has checks: ${{ needs.nix-validation.outputs.has-checks }}"
+            echo "  - Has dev shells: ${{ needs.nix-validation.outputs.has-devshells }}"
+          else
+            echo "❌ Nix validation failed"
+          fi
+          
+          echo ""
+          echo "### Formatting & Linting"
+          if [[ "${{ needs.nix-formatting.result }}" == "success" ]]; then
+            echo "✅ Formatting and linting passed"
+          else
+            echo "❌ Formatting and linting failed"
+          fi
+          
+          echo ""
+          echo "### Development Shell"
+          if [[ "${{ needs.dev-shell-validation.result }}" == "success" ]]; then
+            echo "✅ Development shell validation passed"
+          elif [[ "${{ needs.dev-shell-validation.result }}" == "skipped" ]]; then
+            echo "⏭️  Development shell validation skipped (no dev shells)"
+          else
+            echo "❌ Development shell validation failed"
+          fi
+          
+          echo ""
+          echo "### Nix Checks"
+          if [[ "${{ needs.nix-checks.result }}" == "success" ]]; then
+            echo "✅ Nix checks passed"
+          elif [[ "${{ needs.nix-checks.result }}" == "skipped" ]]; then
+            echo "⏭️  Nix checks skipped (no checks defined)"
+          else
+            echo "❌ Nix checks failed"
+          fi

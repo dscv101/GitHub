@@ -1,0 +1,384 @@
+name: Build - Multi-System Nix
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+# SECURITY: Minimal permissions, explicit per-job
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # SECURITY: Secure Nix evaluation
+  NIX_CONFIG: |
+    extra-experimental-features = nix-command flakes
+    sandbox = true
+    max-jobs = auto
+    keep-outputs = true
+    keep-derivations = true
+
+jobs:
+  # Detect available systems and packages
+  detect-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      systems: ${{ steps.detect-systems.outputs.systems }}
+      packages: ${{ steps.detect-packages.outputs.packages }}
+      has-packages: ${{ steps.detect-packages.outputs.has-packages }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Detect available systems
+        id: detect-systems
+        run: |
+          if [[ -f flake.nix ]]; then
+            # Extract systems from flake outputs
+            systems=$(nix flake show --json . 2>/dev/null | jq -r '
+              [
+                (.packages // {} | keys[]),
+                (.devShells // {} | keys[]),
+                (.checks // {} | keys[])
+              ] | unique | @json
+            ' || echo '["x86_64-linux"]')
+            
+            echo "systems=$systems" >> $GITHUB_OUTPUT
+            echo "🖥️  Detected systems: $systems"
+          else
+            # Default systems if no flake
+            echo 'systems=["x86_64-linux"]' >> $GITHUB_OUTPUT
+            echo "🖥️  Using default systems: x86_64-linux"
+          fi
+
+      - name: Detect available packages
+        id: detect-packages
+        run: |
+          if [[ -f flake.nix ]]; then
+            # Check if packages exist
+            if nix flake show --json . 2>/dev/null | jq -e '.packages' >/dev/null; then
+              packages=$(nix flake show --json . | jq -r '
+                .packages | to_entries | map(.key + "." + (.value | keys[])) | @json
+              ')
+              echo "packages=$packages" >> $GITHUB_OUTPUT
+              echo "has-packages=true" >> $GITHUB_OUTPUT
+              echo "📦 Detected packages: $packages"
+            else
+              echo "packages=[]" >> $GITHUB_OUTPUT
+              echo "has-packages=false" >> $GITHUB_OUTPUT
+              echo "📦 No packages detected"
+            fi
+          else
+            echo "packages=[]" >> $GITHUB_OUTPUT
+            echo "has-packages=false" >> $GITHUB_OUTPUT
+            echo "📦 No flake.nix found"
+          fi
+
+  # Build packages across systems
+  build-packages:
+    runs-on: ubuntu-latest
+    needs: detect-matrix
+    if: needs.detect-matrix.outputs.has-packages == 'true'
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.detect-matrix.outputs.systems) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Build packages for ${{ matrix.system }}
+        run: |
+          echo "🔨 Building packages for ${{ matrix.system }}..."
+          
+          # Get packages for this system
+          packages=$(nix flake show --json . | jq -r '
+            .packages."${{ matrix.system }}" // {} | keys | @json
+          ')
+          
+          if [[ "$packages" != "[]" ]]; then
+            echo "📦 Building packages: $packages"
+            for package in $(echo "$packages" | jq -r '.[]'); do
+              echo "Building package: $package"
+              nix build ".#packages.${{ matrix.system }}.$package" --print-build-logs
+            done
+          else
+            echo "⏭️  No packages found for ${{ matrix.system }}"
+          fi
+
+      - name: Test package outputs
+        run: |
+          echo "🧪 Testing package outputs..."
+          
+          # List built packages
+          if ls result* >/dev/null 2>&1; then
+            for result in result*; do
+              echo "📁 Contents of $result:"
+              ls -la "$result/" || echo "  (not a directory)"
+            done
+          else
+            echo "⏭️  No package outputs to test"
+          fi
+
+  # Build development shells
+  build-devshells:
+    runs-on: ubuntu-latest
+    needs: detect-matrix
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.detect-matrix.outputs.systems) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Build development shells for ${{ matrix.system }}
+        run: |
+          echo "🛠️  Building development shells for ${{ matrix.system }}..."
+          
+          # Check if devShells exist for this system
+          if nix flake show --json . | jq -e '.devShells."${{ matrix.system }}"' >/dev/null 2>&1; then
+            devshells=$(nix flake show --json . | jq -r '
+              .devShells."${{ matrix.system }}" | keys | @json
+            ')
+            
+            echo "🐚 Building dev shells: $devshells"
+            for shell in $(echo "$devshells" | jq -r '.[]'); do
+              echo "Building dev shell: $shell"
+              nix build ".#devShells.${{ matrix.system }}.$shell" --print-build-logs
+            done
+          else
+            echo "⏭️  No development shells found for ${{ matrix.system }}"
+          fi
+
+      - name: Test development shell activation
+        run: |
+          echo "🧪 Testing development shell activation..."
+          
+          # Test default development shell if it exists
+          if nix flake show --json . | jq -e '.devShells."${{ matrix.system }}".default' >/dev/null 2>&1; then
+            echo "Testing default development shell..."
+            nix develop ".#devShells.${{ matrix.system }}.default" --command bash -c "
+              echo '✅ Development shell activated successfully'
+              echo 'Environment variables:'
+              env | grep -E '^(NIX_|PATH)' | head -5
+            "
+          else
+            echo "⏭️  No default development shell to test"
+          fi
+
+  # Run system-specific checks
+  system-checks:
+    runs-on: ubuntu-latest
+    needs: detect-matrix
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.detect-matrix.outputs.systems) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Run checks for ${{ matrix.system }}
+        run: |
+          echo "✅ Running checks for ${{ matrix.system }}..."
+          
+          # Check if system-specific checks exist
+          if nix flake show --json . | jq -e '.checks."${{ matrix.system }}"' >/dev/null 2>&1; then
+            checks=$(nix flake show --json . | jq -r '
+              .checks."${{ matrix.system }}" | keys | @json
+            ')
+            
+            echo "🔍 Running checks: $checks"
+            for check in $(echo "$checks" | jq -r '.[]'); do
+              echo "Running check: $check"
+              nix build ".#checks.${{ matrix.system }}.$check" --print-build-logs
+            done
+          else
+            echo "⏭️  No checks found for ${{ matrix.system }}"
+          fi
+
+  # Flake-parts compliance validation
+  flake-parts-compliance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Validate flake-parts usage
+        run: |
+          echo "🔍 Validating flake-parts compliance..."
+          
+          if [[ -f flake.nix ]]; then
+            # Check for flake-parts import
+            if grep -q "flake-parts" flake.nix; then
+              echo "✅ flake-parts detected"
+              
+              # Check for mkFlake usage
+              if grep -q "mkFlake" flake.nix; then
+                echo "✅ mkFlake usage detected"
+              else
+                echo "⚠️  mkFlake usage not detected - may not be using flake-parts correctly"
+              fi
+              
+              # Check for perSystem usage
+              if grep -q "perSystem" flake.nix; then
+                echo "✅ perSystem usage detected"
+              else
+                echo "⚠️  perSystem usage not detected - may not be following organization patterns"
+              fi
+              
+              # Check for systems definition
+              if grep -q "systems.*=" flake.nix; then
+                echo "✅ Systems definition detected"
+              else
+                echo "⚠️  Systems definition not clearly detected"
+              fi
+              
+            else
+              echo "❌ flake-parts not detected - violates organization rules"
+              echo "Organization rules require flake-parts usage"
+              exit 1
+            fi
+          else
+            echo "❌ No flake.nix found"
+            exit 1
+          fi
+
+      - name: Check directory structure compliance
+        run: |
+          echo "📁 Checking directory structure compliance..."
+          
+          # Check for required directories per organization rules
+          required_dirs=("modules" "systems" "home" "overlays" "docs")
+          optional_dirs=("pkgs" "secrets")
+          
+          for dir in "${required_dirs[@]}"; do
+            if [[ -d "$dir" ]]; then
+              echo "✅ Required directory found: $dir/"
+            else
+              echo "⚠️  Required directory missing: $dir/ (per organization rules)"
+            fi
+          done
+          
+          for dir in "${optional_dirs[@]}"; do
+            if [[ -d "$dir" ]]; then
+              echo "✅ Optional directory found: $dir/"
+            else
+              echo "ℹ️  Optional directory not present: $dir/"
+            fi
+          done
+
+  # Build summary
+  build-summary:
+    runs-on: ubuntu-latest
+    needs: [detect-matrix, build-packages, build-devshells, system-checks, flake-parts-compliance]
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## 🔨 Build Summary"
+          echo ""
+          echo "### Matrix Detection"
+          if [[ "${{ needs.detect-matrix.result }}" == "success" ]]; then
+            echo "✅ Matrix detection successful"
+            echo "  - Systems: ${{ needs.detect-matrix.outputs.systems }}"
+            echo "  - Has packages: ${{ needs.detect-matrix.outputs.has-packages }}"
+          else
+            echo "❌ Matrix detection failed"
+          fi
+          
+          echo ""
+          echo "### Package Builds"
+          if [[ "${{ needs.build-packages.result }}" == "success" ]]; then
+            echo "✅ Package builds successful"
+          elif [[ "${{ needs.build-packages.result }}" == "skipped" ]]; then
+            echo "⏭️  Package builds skipped (no packages)"
+          else
+            echo "❌ Package builds failed"
+          fi
+          
+          echo ""
+          echo "### Development Shell Builds"
+          if [[ "${{ needs.build-devshells.result }}" == "success" ]]; then
+            echo "✅ Development shell builds successful"
+          else
+            echo "❌ Development shell builds failed"
+          fi
+          
+          echo ""
+          echo "### System Checks"
+          if [[ "${{ needs.system-checks.result }}" == "success" ]]; then
+            echo "✅ System checks successful"
+          else
+            echo "❌ System checks failed"
+          fi
+          
+          echo ""
+          echo "### Flake-parts Compliance"
+          if [[ "${{ needs.flake-parts-compliance.result }}" == "success" ]]; then
+            echo "✅ Flake-parts compliance validated"
+          else
+            echo "❌ Flake-parts compliance failed"
+          fi

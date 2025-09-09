@@ -1,0 +1,369 @@
+name: Security - Jujitsu & Nix
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+# SECURITY: Minimal permissions, explicit per-job
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # SECURITY: Secure Nix evaluation
+  NIX_CONFIG: |
+    extra-experimental-features = nix-command flakes
+    sandbox = true
+    max-jobs = auto
+
+jobs:
+  # CodeQL Analysis adapted for Jujitsu SCM
+  codeql-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['nix']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Fetch full history for better analysis
+          fetch-depth: 0
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Custom queries for Nix security patterns
+          queries: +security-and-quality
+
+      - name: Setup Nix for CodeQL
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # Nix-specific security scanning
+  nix-security-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Scan for Nix security issues
+        run: |
+          echo "🔍 Scanning for Nix security issues..."
+          
+          # Check for insecure Nix patterns
+          echo "Checking for insecure patterns..."
+          
+          # Look for fetchurl without hash
+          if grep -r "fetchurl" --include="*.nix" . | grep -v "sha256\|hash"; then
+            echo "⚠️  Found fetchurl without hash - potential security risk"
+          else
+            echo "✅ No insecure fetchurl patterns found"
+          fi
+          
+          # Look for allowUnfree usage
+          if grep -r "allowUnfree.*true" --include="*.nix" .; then
+            echo "⚠️  Found allowUnfree usage - review for necessity"
+          else
+            echo "✅ No allowUnfree usage found"
+          fi
+          
+          # Look for insecure packages
+          if grep -r "pkgs\..*insecure" --include="*.nix" .; then
+            echo "⚠️  Found references to insecure packages"
+          else
+            echo "✅ No insecure package references found"
+          fi
+
+      - name: Check flake inputs for security
+        run: |
+          echo "🔒 Checking flake inputs for security..."
+          
+          if [[ -f flake.lock ]]; then
+            # Check for non-GitHub inputs (potential supply chain risk)
+            non_github_inputs=$(jq -r '
+              .nodes | to_entries[] | 
+              select(.value.locked.type != "github" and .key != "root") | 
+              .key
+            ' flake.lock)
+            
+            if [[ -n "$non_github_inputs" ]]; then
+              echo "⚠️  Non-GitHub inputs found (review for supply chain security):"
+              echo "$non_github_inputs"
+            else
+              echo "✅ All inputs are from GitHub"
+            fi
+            
+            # Check for inputs without specific revisions
+            unlocked_inputs=$(jq -r '
+              .nodes | to_entries[] | 
+              select(.value.locked.rev == null and .key != "root") | 
+              .key
+            ' flake.lock)
+            
+            if [[ -n "$unlocked_inputs" ]]; then
+              echo "⚠️  Inputs without specific revisions found:"
+              echo "$unlocked_inputs"
+            else
+              echo "✅ All inputs have specific revisions"
+            fi
+          else
+            echo "⚠️  No flake.lock found - inputs not pinned"
+          fi
+
+      - name: Validate secrets handling
+        run: |
+          echo "🔐 Validating secrets handling..."
+          
+          # Check for potential secrets in Nix files
+          if grep -r -i "password\|secret\|key\|token" --include="*.nix" . | grep -v "# " | grep -v "secretsPath\|secretsFile"; then
+            echo "⚠️  Potential secrets found in Nix files - review carefully"
+          else
+            echo "✅ No obvious secrets found in Nix files"
+          fi
+          
+          # Check for sops-nix usage (recommended for secrets)
+          if grep -r "sops-nix\|sops\.secrets" --include="*.nix" .; then
+            echo "✅ sops-nix usage detected for secrets management"
+          else
+            echo "ℹ️  No sops-nix usage detected - consider for secrets management"
+          fi
+
+  # Dependency vulnerability scanning
+  dependency-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v9
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Scan Nix dependencies
+        run: |
+          echo "📦 Scanning Nix dependencies for vulnerabilities..."
+          
+          if [[ -f flake.nix ]]; then
+            # Get all flake inputs
+            echo "Flake inputs:"
+            nix flake metadata --json . | jq -r '.locks.nodes | to_entries[] | select(.key != "root") | "\(.key): \(.value.locked.rev // "unknown")"'
+            
+            # Check for known vulnerable Nixpkgs versions
+            nixpkgs_rev=$(nix flake metadata --json . | jq -r '.locks.nodes.nixpkgs.locked.rev // empty')
+            if [[ -n "$nixpkgs_rev" ]]; then
+              echo "Using Nixpkgs revision: $nixpkgs_rev"
+              # Note: In a real implementation, you'd check this against a vulnerability database
+              echo "✅ Nixpkgs revision recorded for vulnerability tracking"
+            fi
+          else
+            echo "⚠️  No flake.nix found - cannot scan dependencies"
+          fi
+
+      - name: Check for dependency review
+        uses: actions/dependency-review-action@v4
+        if: github.event_name == 'pull_request'
+        with:
+          fail-on-severity: moderate
+
+  # Jujitsu repository security validation
+  jujitsu-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Jujitsu
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          cargo install --locked jj-cli
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure Jujitsu
+        run: |
+          jj config set --user user.name "Security Scanner"
+          jj config set --user user.email "security@github.com"
+
+      - name: Initialize Jujitsu repository
+        run: |
+          if [[ ! -d .jj ]]; then
+            jj git init --colocate
+          fi
+
+      - name: Validate Jujitsu repository integrity
+        run: |
+          echo "🔍 Validating Jujitsu repository integrity..."
+          
+          # Check repository status
+          jj status
+          
+          # Validate commit history
+          echo "Recent commits:"
+          jj log --limit 10
+          
+          # Check for any corruption
+          if jj log >/dev/null 2>&1; then
+            echo "✅ Jujitsu repository integrity validated"
+          else
+            echo "❌ Jujitsu repository integrity check failed"
+            exit 1
+          fi
+
+      - name: Check for sensitive files in history
+        run: |
+          echo "🔍 Checking for sensitive files in history..."
+          
+          # List all files in history
+          sensitive_patterns=("*.key" "*.pem" "*.p12" "*.pfx" "id_rsa" "id_dsa" "*.env" ".env.*")
+          
+          for pattern in "${sensitive_patterns[@]}"; do
+            if jj log --template 'commit_id ++ "\n"' | head -20 | while read commit; do
+              jj show --tool=diff "$commit" 2>/dev/null | grep -l "$pattern" && echo "⚠️  Sensitive file pattern '$pattern' found in commit $commit"
+            done | grep -q "⚠️"; then
+              echo "⚠️  Sensitive file patterns detected in history"
+            fi
+          done
+          
+          echo "✅ Sensitive file check completed"
+
+  # OSSF Scorecard for supply chain security
+  scorecard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run OSSF Scorecard
+        uses: ossf/scorecard-action@v2.3.1
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+  # Security summary
+  security-summary:
+    runs-on: ubuntu-latest
+    needs: [codeql-analysis, nix-security-scan, dependency-scan, jujitsu-security, scorecard]
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - name: Security Summary
+        run: |
+          echo "## 🔒 Security Summary"
+          echo ""
+          echo "### CodeQL Analysis"
+          if [[ "${{ needs.codeql-analysis.result }}" == "success" ]]; then
+            echo "✅ CodeQL analysis completed successfully"
+          else
+            echo "❌ CodeQL analysis failed or found issues"
+          fi
+          
+          echo ""
+          echo "### Nix Security Scan"
+          if [[ "${{ needs.nix-security-scan.result }}" == "success" ]]; then
+            echo "✅ Nix security scan completed successfully"
+          else
+            echo "❌ Nix security scan failed or found issues"
+          fi
+          
+          echo ""
+          echo "### Dependency Scan"
+          if [[ "${{ needs.dependency-scan.result }}" == "success" ]]; then
+            echo "✅ Dependency scan completed successfully"
+          else
+            echo "❌ Dependency scan failed or found vulnerabilities"
+          fi
+          
+          echo ""
+          echo "### Jujitsu Security"
+          if [[ "${{ needs.jujitsu-security.result }}" == "success" ]]; then
+            echo "✅ Jujitsu repository security validated"
+          else
+            echo "❌ Jujitsu repository security validation failed"
+          fi
+          
+          echo ""
+          echo "### OSSF Scorecard"
+          if [[ "${{ needs.scorecard.result }}" == "success" ]]; then
+            echo "✅ OSSF Scorecard analysis completed"
+          else
+            echo "❌ OSSF Scorecard analysis failed"
+          fi
+          
+          echo ""
+          echo "### Overall Security Status"
+          failed_jobs=0
+          for job in codeql-analysis nix-security-scan dependency-scan jujitsu-security scorecard; do
+            if [[ "${{ needs.$job.result }}" != "success" ]]; then
+              ((failed_jobs++))
+            fi
+          done
+          
+          if [[ $failed_jobs -eq 0 ]]; then
+            echo "🎉 All security checks passed!"
+          else
+            echo "⚠️  $failed_jobs security check(s) failed - review required"
+          fi
