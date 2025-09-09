@@ -82,8 +82,21 @@ jobs:
           
           mkdir -p security-reports
           
-          # Get flake metadata
-          nix flake metadata --json > security-reports/flake-metadata.json
+          # Get flake metadata with error handling
+          if ! nix flake metadata --json > security-reports/flake-metadata.json; then
+            echo "❌ Failed to get flake metadata"
+            echo "## Dependency Source Analysis" > security-reports/dependency-audit.md
+            echo "" >> security-reports/dependency-audit.md
+            echo "⚠️ **Error**: Could not retrieve flake metadata for analysis" >> security-reports/dependency-audit.md
+            echo "" >> security-reports/dependency-audit.md
+            echo "## Summary" >> security-reports/dependency-audit.md
+            echo "- **Trusted sources**: 0" >> security-reports/dependency-audit.md
+            echo "- **Untrusted sources**: 0" >> security-reports/dependency-audit.md
+            echo "- **Stale inputs (>30 days)**: 0" >> security-reports/dependency-audit.md
+            echo "Dependency audit completed with errors:"
+            echo "  Trusted: 0, Untrusted: 0, Stale: 0"
+            exit 0
+          fi
           
           # Analyze input sources
           echo "## Dependency Source Analysis" > security-reports/dependency-audit.md
@@ -94,37 +107,49 @@ jobs:
           stale_inputs=0
           current_date=$(date +%s)
           
-          while read -r owner repo url type; do
-            case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci)
-                echo "✅ **Trusted**: $owner/$repo" >> security-reports/dependency-audit.md
-                ((trusted_sources++))
-                ;;
-              *)
-                echo "⚠️ **Untrusted**: $owner/$repo - [Review manually]($url)" >> security-reports/dependency-audit.md
-                ((untrusted_sources++))
-                ;;
-            esac
-          done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo) \(.original.url // .locked.url // "unknown") \(.original.type)"' security-reports/flake-metadata.json 2>/dev/null)
+          # Process dependencies with error handling
+          if jq -e '.locks.nodes' security-reports/flake-metadata.json >/dev/null 2>&1; then
+            while read -r owner repo url type; do
+              if [[ -n "$owner" && "$owner" != "null" ]]; then
+                case "$owner" in
+                  NixOS|nix-community|cachix|numtide|hercules-ci)
+                    echo "✅ **Trusted**: $owner/$repo" >> security-reports/dependency-audit.md
+                    ((trusted_sources++))
+                    ;;
+                  *)
+                    echo "⚠️ **Untrusted**: $owner/$repo - [Review manually]($url)" >> security-reports/dependency-audit.md
+                    ((untrusted_sources++))
+                    ;;
+                esac
+              fi
+            done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo) \(.original.url // .locked.url // "unknown") \(.original.type)"' security-reports/flake-metadata.json 2>/dev/null || true)
+          else
+            echo "⚠️ **Warning**: Could not parse dependency information" >> security-reports/dependency-audit.md
+          fi
           
           # Check for stale inputs
           echo "" >> security-reports/dependency-audit.md
           echo "## Staleness Analysis" >> security-reports/dependency-audit.md
           echo "" >> security-reports/dependency-audit.md
           
-          while read -r input_name last_modified; do
-            if [[ "$last_modified" != "null" ]] && [[ -n "$last_modified" ]]; then
-              days_old=$(( (current_date - last_modified) / 86400 ))
-              if [[ $days_old -gt 30 ]]; then
-                echo "⚠️ **$input_name**: $days_old days old (consider updating)" >> security-reports/dependency-audit.md
-                ((stale_inputs++))
-              elif [[ $days_old -gt 7 ]]; then
-                echo "ℹ️ **$input_name**: $days_old days old" >> security-reports/dependency-audit.md
-              else
-                echo "✅ **$input_name**: Recent ($days_old days)" >> security-reports/dependency-audit.md
+          # Process staleness analysis with error handling
+          if jq -e '.locks.nodes' security-reports/flake-metadata.json >/dev/null 2>&1; then
+            while read -r input_name last_modified; do
+              if [[ -n "$input_name" && "$last_modified" != "null" ]] && [[ -n "$last_modified" ]]; then
+                days_old=$(( (current_date - last_modified) / 86400 ))
+                if [[ $days_old -gt 30 ]]; then
+                  echo "⚠️ **$input_name**: $days_old days old (consider updating)" >> security-reports/dependency-audit.md
+                  ((stale_inputs++))
+                elif [[ $days_old -gt 7 ]]; then
+                  echo "ℹ️ **$input_name**: $days_old days old" >> security-reports/dependency-audit.md
+                else
+                  echo "✅ **$input_name**: Recent ($days_old days)" >> security-reports/dependency-audit.md
+                fi
               fi
-            fi
-          done < <(jq -r '.locks.nodes | to_entries[] | select(.value.locked.lastModified) | "\(.key) \(.value.locked.lastModified)"' security-reports/flake-metadata.json 2>/dev/null)
+            done < <(jq -r '.locks.nodes | to_entries[] | select(.value.locked.lastModified) | "\(.key) \(.value.locked.lastModified)"' security-reports/flake-metadata.json 2>/dev/null || true)
+          else
+            echo "⚠️ **Warning**: Could not analyze input staleness" >> security-reports/dependency-audit.md
+          fi
           
           # Summary
           cat >> security-reports/dependency-audit.md << EOF
