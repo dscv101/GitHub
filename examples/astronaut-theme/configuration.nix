@@ -1,7 +1,7 @@
 # Example configuration for using the Astronaut SDDM theme
 # This shows how to enable SDDM with the beautiful space-themed login screen
 
-{ config, pkgs, ... }:
+{ ... }:
 
 {
   # Import the desktop modules (includes SDDM support)

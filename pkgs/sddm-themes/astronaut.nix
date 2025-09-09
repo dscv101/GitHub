@@ -13,7 +13,7 @@ stdenv.mkDerivation rec {
     owner = "Keyitdev";
     repo = "sddm-astronaut-theme";
     rev = "468a100460d5feaa701c2215c737b55789cba0fc";
-    sha256 = "sha256-RVU29FGcWP0vQtU1zGlb8iP0HbCyOjJp2zAFLqarOWs=";
+    sha256 = "sha256-L+5xoyjX3/nqjWtMRlHR/QfAXtnICyGzxesSZexZQMA=";
   };
 
   propagatedUserEnvPkgs = with kdePackages; [

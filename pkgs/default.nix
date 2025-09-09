@@ -1,6 +1,5 @@
 {
   pkgs,
-  settings,
   ...
 }: {
   # SDDM Themes

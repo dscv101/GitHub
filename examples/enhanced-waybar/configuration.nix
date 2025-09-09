@@ -1,7 +1,7 @@
 # Example configuration for the enhanced Waybar setup
 # This shows how to use the modern, feature-rich Waybar configuration
 
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # Import the desktop modules (includes enhanced Waybar)
