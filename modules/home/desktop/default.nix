@@ -19,7 +19,7 @@
     pkgs.slurp
     pkgs.wl-clipboard
     pkgs.cliphist
-    
+
     # Waybar module dependencies
     pkgs.btop                    # System monitor (CPU/Memory click action)
     pkgs.baobab                  # Disk usage analyzer (Disk click action)
