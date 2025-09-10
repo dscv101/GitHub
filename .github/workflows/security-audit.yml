@@ -80,8 +80,11 @@ jobs:
         if: github.event.inputs.scan_type != 'vulnerabilities-only'
         run: |
           echo "🔍 Auditing flake dependencies..."
+          set -euo pipefail
           # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
+          if ! command -v jq >/dev/null 2>&1; then
+            jq() { nix run nixpkgs#jq -- "$@"; }
+          fi
           
           mkdir -p security-reports
           
@@ -147,8 +150,11 @@ jobs:
         id: vulnerability-scan
         run: |
           echo "🔍 Running vulnerability scan..."
+          set -euo pipefail
           # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
+          if ! command -v jq >/dev/null 2>&1; then
+            jq() { nix run nixpkgs#jq -- "$@"; }
+          fi
           
           mkdir -p security-reports
           

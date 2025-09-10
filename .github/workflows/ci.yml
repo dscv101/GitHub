@@ -95,6 +95,9 @@ jobs:
       - name: Security validation
         run: |
           echo "🔒 Running security validation..."
+          set -euo pipefail
+          # Ensure jq is available via Nix
+          command -v jq >/dev/null 2>&1 || jq() { nix run nixpkgs#jq -- "$@"; }
           
           # Check for unsafe Nix features (fail only on allowBroken/allowInsecure)
           if grep -R --include="*.nix" -nE "allowBroken|allowInsecure" . --exclude-dir=".git"; then
