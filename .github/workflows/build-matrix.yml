@@ -48,6 +48,9 @@ jobs:
       - name: Validate flake structure
         id: check-flake
         run: |
+          set -euo pipefail
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           # Verify flake.nix exists
           if [[ ! -f "flake.nix" ]]; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
