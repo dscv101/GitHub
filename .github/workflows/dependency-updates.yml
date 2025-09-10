@@ -53,7 +53,7 @@ jobs:
 
       # ENHANCED: Flake health check before updates
       - name: Pre-update health check
-        uses: DeterminateSystems/flake-checker-action@v9
+        uses: DeterminateSystems/flake-checker-action@v12
         with:
           fail-mode: false
         continue-on-error: true
