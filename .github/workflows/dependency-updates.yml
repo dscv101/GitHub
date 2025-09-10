@@ -128,7 +128,7 @@ jobs:
           validation_result="success"
           
           # Check flake structure
-          if ! nix flake check --show-trace --no-pure-eval --accept-flake-config; then
+          if ! nix flake check --show-trace --accept-flake-config; then
             echo "❌ Flake check failed"
             validation_result="failed"
           fi
