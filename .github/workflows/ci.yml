@@ -55,7 +55,7 @@ jobs:
           echo "🔍 Validating flake and configuration..."
           
           # Check flake validity
-          if ! nix flake check --show-trace --no-pure-eval --accept-flake-config; then
+          if ! nix flake check --show-trace --accept-flake-config; then
             echo "❌ Flake check failed"
             exit 1
           fi
