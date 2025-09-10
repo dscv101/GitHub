@@ -48,8 +48,6 @@ jobs:
       - name: Validate flake structure
         id: check-flake
         run: |
-          # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
           # Verify flake.nix exists
           if [[ ! -f "flake.nix" ]]; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -71,9 +69,9 @@ jobs:
           fi
           
           # Validate flake structure
-          if jq -e '.packages' flake-info.json >/dev/null; then
+          if nix run nixpkgs#jq -- -e '.packages' flake-info.json >/dev/null; then
             echo "has-packages=true" >> "$GITHUB_OUTPUT"
-            systems=$(jq -r '.packages | keys | @json' flake-info.json)
+            systems=$(nix run nixpkgs#jq -- -r '.packages | keys | @json' flake-info.json)
             echo "systems=$systems" >> "$GITHUB_OUTPUT"
             echo "✅ Valid flake with packages"
           else
@@ -87,8 +85,6 @@ jobs:
         id: security-check
         run: |
           echo "🔍 Running security checks..."
-          # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
           
           security_issues=0
           
@@ -114,7 +110,7 @@ jobs:
                 echo "⚠️ Untrusted: $owner/$repo"
                 ((untrusted_count++)) ;;
             esac
-          done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
+          done < <(nix run nixpkgs#jq -- -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
           
           if [[ $untrusted_count -gt 0 ]]; then
             echo "❌ $untrusted_count untrusted inputs found"
@@ -132,7 +128,7 @@ jobs:
                 break
               fi
             fi
-          done < <(jq -r '.locks.nodes[].locked.lastModified // empty' flake-meta.json)
+          done < <(nix run nixpkgs#jq -- -r '.locks.nodes[].locked.lastModified // empty' flake-meta.json)
           
           if [[ $security_issues -eq 0 ]]; then
             echo "passed=true" >> "$GITHUB_OUTPUT"
@@ -169,8 +165,6 @@ jobs:
         id: set-matrix
         run: |
           echo "🔨 Generating build matrix..."
-          # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
           
           # Try custom matrix first
           if matrix=$(nix eval --json .#githubActions.matrix 2>/dev/null); then
@@ -198,8 +192,8 @@ jobs:
                   matrix_entries+=","
                 fi
                 matrix_entries+="{\"system\":\"$system\",\"name\":\"$package\",\"os\":\"$runner_os\"}"
-              done < <(jq -r ".packages[\"$system\"] | keys[]" flake-info.json 2>/dev/null)
-            done < <(jq -r '.packages | keys[]' flake-info.json 2>/dev/null)
+              done < <(nix run nixpkgs#jq -- -r ".packages[\"$system\"] | keys[]" flake-info.json 2>/dev/null)
+            done < <(nix run nixpkgs#jq -- -r '.packages | keys[]' flake-info.json 2>/dev/null)
             
             if [[ -n "$matrix_entries" ]]; then
               matrix="{\"include\":[$matrix_entries]}"
@@ -267,8 +261,6 @@ jobs:
             max-jobs = auto
         run: |
           echo "🚀 Building ${{ matrix.name }} for ${{ matrix.system }}"
-          # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
           
           build_args=(
             "--print-build-logs"
@@ -289,7 +281,7 @@ jobs:
           # Basic security scan of build result
           if [[ -L "result" ]]; then
             echo "📊 Build analysis:"
-            nix path-info --json result | jq -r '.[] | "Size: \(.narSize) bytes, References: \(.references | length)"'
+            nix path-info --json result | nix run nixpkgs#jq -- -r '.[] | "Size: \(.narSize) bytes, References: \(.references | length)"'
           fi
 
       - name: Generate build report

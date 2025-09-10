@@ -66,7 +66,7 @@ jobs:
             echo "config-exists=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
             echo "Available configs:"
-            nix eval --json --expr '(builtins.attrNames (builtins.getFlake ".").nixosConfigurations)' | jq -r '.[]' || true
+            nix eval --json --expr '(builtins.attrNames (builtins.getFlake ".").nixosConfigurations)' | nix run nixpkgs#jq -- -r '.[]' || true
             
             # Try to build a known host if present
             if nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' | grep -q true; then
@@ -97,8 +97,6 @@ jobs:
       - name: Security validation
         run: |
           echo "🔒 Running security validation..."
-          # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
           
           # Check for unsafe Nix features (fail only on allowBroken/allowInsecure)
           if grep -R --include="*.nix" -nE "allowBroken|allowInsecure" . --exclude-dir=".git"; then
@@ -121,7 +119,7 @@ jobs:
                 echo "⚠️ Untrusted: $owner/$repo"
                 ((untrusted_count++)) ;;
             esac
-          done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
+          done < <(nix run nixpkgs#jq -- -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
           
           if [[ $untrusted_count -gt 0 ]]; then
             echo "❌ $untrusted_count untrusted inputs found"
@@ -163,14 +161,18 @@ jobs:
           echo "🎨 Checking code formatting..."
           
           # Try treefmt first (modern approach)
-          if nix build .#formatter 2>/dev/null; then
+          if nix build .#formatter --show-trace 2>/dev/null; then
             echo "Using treefmt formatter"
-            ./result/bin/treefmt --check --no-cache .
-          elif nix run nixpkgs#treefmt -- --check --no-cache . 2>/dev/null; then
-            echo "Using system treefmt"
+            if ! ./result/bin/treefmt --check --no-cache .; then
+              echo "❌ Code formatting issues found. Run 'nix fmt' to fix."
+              exit 1
+            fi
           else
             echo "Using alejandra fallback"
-            nix run nixpkgs#alejandra -- --check .
+            if ! nix run nixpkgs#alejandra -- --check .; then
+              echo "❌ Code formatting issues found. Run 'nix run nixpkgs#alejandra -- .' to fix."
+              exit 1
+            fi
           fi
 
       - name: Lint Nix code
@@ -295,8 +297,6 @@ jobs:
       - name: Build NixOS configuration
         run: |
           echo "🏗️ Building NixOS configuration..."
-          # Ensure jq is available via Nix
-          jq() { nix run nixpkgs#jq -- "$@"; }
           
           # Build system configuration with security restrictions
           nix build \
@@ -309,7 +309,7 @@ jobs:
           echo "✅ System configuration built successfully"
           
           # Show build info
-          nix path-info --json result | jq -r '.[] | "Size: \(.narSize) bytes"'
+          nix path-info --json result | nix run nixpkgs#jq -- -r '.[] | "Size: \(.narSize) bytes"'
 
   # Enhanced checks execution
   checks:
