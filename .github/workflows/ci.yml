@@ -148,7 +148,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Setup devenv cache
-        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
+        uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad # v16
         with:
           name: devenv
 
@@ -287,7 +287,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Setup devenv cache
-        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
+        uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad # v16
         with:
           name: devenv
 
@@ -332,7 +332,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Setup devenv cache
-        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
+        uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad # v16
         with:
           name: devenv
 
