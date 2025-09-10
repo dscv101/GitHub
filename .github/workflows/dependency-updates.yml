@@ -241,7 +241,7 @@ jobs:
       - name: Create pull request
         if: steps.update_inputs.outputs.changes_detected == 'true' && steps.validate_update.outputs.validation_result == 'success' && (github.event.inputs.create_pr != 'false')
         id: create_pr
-        uses: peter-evans/create-pull-request@5b4a9f6a9e2af26e5f02351490b90d01eb8ec1e5 # v7.0.5
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: |
