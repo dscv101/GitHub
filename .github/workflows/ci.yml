@@ -132,7 +132,10 @@ jobs:
             fi
             
             # Check for required outputs
-            if nix flake show --json . | jq -e '.checks' >/dev/null 2>&1; then
+            flake_outputs=$(nix flake show --json . 2>/dev/null || echo '{}')
+            
+            # Check for checks in any system
+            if echo "$flake_outputs" | jq -e '.checks // empty | length > 0' >/dev/null 2>&1; then
               echo "has-checks=true" >> $GITHUB_OUTPUT
               echo "✅ Checks available"
             else
@@ -140,9 +143,18 @@ jobs:
               echo "⚠️  No checks found"
             fi
             
-            if nix flake show --json . | jq -e '.devShells' >/dev/null 2>&1; then
+            # Check for devShells OR devenv shells
+            has_devshells=false
+            if echo "$flake_outputs" | jq -e '.devShells // empty | length > 0' >/dev/null 2>&1; then
+              has_devshells=true
+              echo "✅ Standard development shells available"
+            elif echo "$flake_outputs" | jq -e '.devenv // empty | length > 0' >/dev/null 2>&1; then
+              has_devshells=true
+              echo "✅ Devenv development shells available"
+            fi
+            
+            if [[ "$has_devshells" == "true" ]]; then
               echo "has-devshells=true" >> $GITHUB_OUTPUT
-              echo "✅ Development shells available"
             else
               echo "has-devshells=false" >> $GITHUB_OUTPUT
               echo "⚠️  No development shells found"
@@ -228,14 +240,35 @@ jobs:
       - name: Test development shell
         run: |
           echo "🛠️  Testing development shell..."
-          nix develop --command bash -c "
-            echo '✅ Development shell activated'
-            echo 'Available tools:'
-            which nix || echo '  - nix: not available'
-            which jj || echo '  - jj: not available' 
-            which just || echo '  - just: not available'
-            which direnv || echo '  - direnv: not available'
-          "
+          
+          # Try devenv shell first, then fallback to standard nix develop
+          if nix run .#devenv.shells.default.shell --command bash -c "echo '✅ Devenv shell activated'" 2>/dev/null; then
+            echo "Using devenv shell..."
+            nix run .#devenv.shells.default.shell --command bash -c "
+              echo '✅ Development shell activated (devenv)'
+              echo 'Available tools:'
+              which nix || echo '  - nix: not available'
+              which jj || echo '  - jj: not available' 
+              which just || echo '  - just: not available'
+              which direnv || echo '  - direnv: not available'
+              which alejandra || echo '  - alejandra: not available'
+              which statix || echo '  - statix: not available'
+              which deadnix || echo '  - deadnix: not available'
+            "
+          elif nix develop --command bash -c "echo '✅ Standard shell activated'" 2>/dev/null; then
+            echo "Using standard nix develop..."
+            nix develop --command bash -c "
+              echo '✅ Development shell activated (standard)'
+              echo 'Available tools:'
+              which nix || echo '  - nix: not available'
+              which jj || echo '  - jj: not available' 
+              which just || echo '  - just: not available'
+              which direnv || echo '  - direnv: not available'
+            "
+          else
+            echo "❌ No development shell available"
+            exit 1
+          fi
 
   # Run Nix checks (organization requirement)
   nix-checks:

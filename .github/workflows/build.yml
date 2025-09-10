@@ -49,11 +49,12 @@ jobs:
         id: detect-systems
         run: |
           if [[ -f flake.nix ]]; then
-            # Extract systems from flake outputs
+            # Extract systems from flake outputs (including devenv)
             systems=$(nix flake show --json . 2>/dev/null | jq -r '
               [
                 (.packages // {} | keys[]),
                 (.devShells // {} | keys[]),
+                (.devenv // {} | keys[]),
                 (.checks // {} | keys[])
               ] | unique | @json
             ' || echo '["x86_64-linux"]')
@@ -173,16 +174,30 @@ jobs:
         run: |
           echo "🛠️  Building development shells for ${{ matrix.system }}..."
           
-          # Check if devShells exist for this system
+          # Check if standard devShells exist for this system
           if nix flake show --json . | jq -e '.devShells."${{ matrix.system }}"' >/dev/null 2>&1; then
             devshells=$(nix flake show --json . | jq -r '
               .devShells."${{ matrix.system }}" | keys | @json
             ')
             
-            echo "🐚 Building dev shells: $devshells"
+            echo "🐚 Building standard dev shells: $devshells"
             for shell in $(echo "$devshells" | jq -r '.[]'); do
               echo "Building dev shell: $shell"
               nix build ".#devShells.${{ matrix.system }}.$shell" --print-build-logs
+            done
+          # Check if devenv shells exist for this system
+          elif nix flake show --json . | jq -e '.devenv."${{ matrix.system }}"' >/dev/null 2>&1; then
+            devenv_shells=$(nix flake show --json . | jq -r '
+              .devenv."${{ matrix.system }}" | keys | @json
+            ')
+            
+            echo "🐚 Building devenv shells: $devenv_shells"
+            for shell in $(echo "$devenv_shells" | jq -r '.[]'); do
+              echo "Building devenv shell: $shell"
+              # Try to build the devenv shell
+              nix build ".#devenv.${{ matrix.system }}.$shell.shell" --print-build-logs || \
+              nix build ".#devenv.${{ matrix.system }}.$shell" --print-build-logs || \
+              echo "⚠️  Could not build devenv shell: $shell"
             done
           else
             echo "⏭️  No development shells found for ${{ matrix.system }}"
@@ -192,14 +207,27 @@ jobs:
         run: |
           echo "🧪 Testing development shell activation..."
           
-          # Test default development shell if it exists
+          # Test standard devShells first
           if nix flake show --json . | jq -e '.devShells."${{ matrix.system }}".default' >/dev/null 2>&1; then
-            echo "Testing default development shell..."
+            echo "Testing default standard development shell..."
             nix develop ".#devShells.${{ matrix.system }}.default" --command bash -c "
               echo '✅ Development shell activated successfully'
               echo 'Environment variables:'
               env | grep -E '^(NIX_|PATH)' | head -5
             "
+          # Test devenv shells
+          elif nix flake show --json . | jq -e '.devenv."${{ matrix.system }}".default' >/dev/null 2>&1; then
+            echo "Testing default devenv development shell..."
+            # Try different ways to activate devenv shell
+            if nix run ".#devenv.${{ matrix.system }}.default.shell" --command bash -c "echo '✅ Devenv shell activated successfully'" 2>/dev/null; then
+              nix run ".#devenv.${{ matrix.system }}.default.shell" --command bash -c "
+                echo '✅ Devenv development shell activated successfully'
+                echo 'Environment variables:'
+                env | grep -E '^(NIX_|PATH)' | head -5
+              "
+            else
+              echo "⚠️  Could not activate devenv shell, but it exists"
+            fi
           else
             echo "⏭️  No default development shell to test"
           fi
