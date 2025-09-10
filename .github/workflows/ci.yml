@@ -97,10 +97,12 @@ jobs:
           echo "🔒 Running security validation..."
           set -euo pipefail
           # Ensure jq is available via Nix
-          command -v jq >/dev/null 2>&1 || jq() { nix run nixpkgs#jq -- "$@"; }
+          if ! command -v jq >/dev/null 2>&1; then
+            jq() { nix run nixpkgs#jq -- "$@"; }
+          fi
           
           # Check for unsafe Nix features (fail only on allowBroken/allowInsecure)
-          if grep -R --include="*.nix" -nE "allowBroken|allowInsecure" . --exclude-dir=".git"; then
+          if grep -R --include="*.nix" -nE "allowBroken|allowInsecure" . --exclude-dir=".git" 2>/dev/null; then
             echo "⚠️ Unsafe Nix features detected (allowBroken/allowInsecure)"
             exit 1
           fi
