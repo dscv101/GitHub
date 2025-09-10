@@ -93,10 +93,14 @@ jobs:
           # Ensure jq is available via Nix
           jq() { nix run nixpkgs#jq -- "$@"; }
           
-          # Check for insecure Nix features
-          if grep -r "allowUnfree\|allowBroken\|allowInsecure" . --include="*.nix" --exclude-dir=".git"; then
-            echo "⚠️ Insecure Nix features detected"
+          # Check for unsafe Nix features (fail only on allowBroken/allowInsecure)
+          if grep -R --include="*.nix" -nE "allowBroken|allowInsecure" . --exclude-dir=".git"; then
+            echo "⚠️ Unsafe Nix features detected (allowBroken/allowInsecure)"
             exit 1
+          fi
+          # Note: allowUnfree is acceptable for systems needing proprietary software
+          if grep -R --include="*.nix" -nE "allowUnfree" . --exclude-dir=".git" >/dev/null; then
+            echo "ℹ️ allowUnfree detected (acceptable for proprietary software support)"
           fi
           
           # Validate flake inputs are from trusted sources  
