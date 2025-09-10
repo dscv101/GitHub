@@ -77,12 +77,13 @@ is_protected_file() {
 	local basename_file
 	basename_file=$(basename "$file_path")
 
-	# Check against protected patterns - using exact bash pattern matching
-	for pattern in "${PROTECTED_PATTERNS[@]}"; do
-		if [[ "$basename_file" == $pattern ]] || [[ "$file_path" == *"$pattern" ]]; then
-			return 0 # File is protected
-		fi
-	done
+    # Check against protected patterns using case for glob matching (shellcheck-friendly)
+    for pattern in "${PROTECTED_PATTERNS[@]}"; do
+        case "$basename_file" in
+            $pattern)
+                return 0 ;; # File is protected
+        esac
+    done
 
 	# Check if file is in a protected directory
 	for dir in "${PROTECTED_DIRECTORIES[@]}"; do
