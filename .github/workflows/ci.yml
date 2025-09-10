@@ -217,7 +217,7 @@ jobs:
           
           # Check markdown files
           if find . -name "*.md" -not -path "./.git/*" | head -1 | read -r; then
-            find . -name "*.md" -not -path "./.git/*" -exec nix run nixpkgs#markdownlint-cli -- {} +
+            find . -name "*.md" -not -path "./.git/*" -print0 | xargs -0 nix run nixpkgs#markdownlint-cli --
           fi
           
           # Check YAML files
