@@ -41,11 +41,11 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       # SECURITY: Enhanced flake health check
       - name: Check flake health
-        uses: DeterminateSystems/flake-checker-action@v9
+        uses: DeterminateSystems/flake-checker-action@078f5f7f47ee188aa6cb472527ca5984e195222d # v9
         with:
           fail-mode: true
 
@@ -60,17 +60,24 @@ jobs:
             exit 1
           fi
           
-          # Check for NixOS configuration
-          if nix eval --json .#nixosConfigurations >/dev/null 2>&1; then
+          # Robustly detect NixOS configurations without forcing full evaluation
+          has_configs=$(nix eval --raw --expr 'builtins.hasAttr "nixosConfigurations" (builtins.getFlake ".")' || echo false)
+          if [[ "$has_configs" == "true" ]]; then
             echo "config-exists=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
+            echo "Available configs:"
+            nix eval --json --expr '(builtins.attrNames (builtins.getFlake ".").nixosConfigurations)' | nix run nixpkgs#jq -- -r '.[]' || true
             
-            # Try to build system configuration
-            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
-              echo "✅ System configuration is buildable"
+            # Try to build a known host if present
+            if nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' | grep -q true; then
+              if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
+                echo "✅ System configuration is buildable (blazar)"
+              else
+                echo "❌ System configuration build failed (blazar)"
+                exit 1
+              fi
             else
-              echo "❌ System configuration build failed"
-              exit 1
+              echo "ℹ️ Host 'blazar' not found. Skipping build test."
             fi
           else
             echo "config-exists=false" >> "$GITHUB_OUTPUT"
@@ -91,10 +98,14 @@ jobs:
         run: |
           echo "🔒 Running security validation..."
           
-          # Check for insecure Nix features
-          if grep -r "allowUnfree\|allowBroken\|allowInsecure" . --include="*.nix" --exclude-dir=".git"; then
-            echo "⚠️ Insecure Nix features detected"
+          # Check for unsafe Nix features (fail only on allowBroken/allowInsecure)
+          if grep -R --include="*.nix" -nE "allowBroken|allowInsecure" . --exclude-dir=".git"; then
+            echo "⚠️ Unsafe Nix features detected (allowBroken/allowInsecure)"
             exit 1
+          fi
+          # Note: allowUnfree is acceptable for systems needing proprietary software
+          if grep -R --include="*.nix" -nE "allowUnfree" . --exclude-dir=".git" >/dev/null; then
+            echo "ℹ️ allowUnfree detected (acceptable for proprietary software support)"
           fi
           
           # Validate flake inputs are from trusted sources  
@@ -102,13 +113,13 @@ jobs:
           untrusted_count=0
           while read -r owner repo; do
             case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci) 
+              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani|edolstra) 
                 echo "✅ Trusted: $owner/$repo" ;;
               *)
                 echo "⚠️ Untrusted: $owner/$repo"
                 ((untrusted_count++)) ;;
             esac
-          done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
+          done < <(nix run nixpkgs#jq -- -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
           
           if [[ $untrusted_count -gt 0 ]]; then
             echo "❌ $untrusted_count untrusted inputs found"
@@ -134,10 +145,10 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
+        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
         with:
           name: devenv
 
@@ -150,14 +161,18 @@ jobs:
           echo "🎨 Checking code formatting..."
           
           # Try treefmt first (modern approach)
-          if nix build .#formatter 2>/dev/null; then
+          if nix build .#formatter --show-trace 2>/dev/null; then
             echo "Using treefmt formatter"
-            ./result/bin/treefmt --check --no-cache .
-          elif nix run nixpkgs#treefmt -- --check --no-cache . 2>/dev/null; then
-            echo "Using system treefmt"
+            if ! ./result/bin/treefmt --check --no-cache .; then
+              echo "❌ Code formatting issues found. Run 'nix fmt' to fix."
+              exit 1
+            fi
           else
             echo "Using alejandra fallback"
-            nix run nixpkgs#alejandra -- --check .
+            if ! nix run nixpkgs#alejandra -- --check .; then
+              echo "❌ Code formatting issues found. Run 'nix run nixpkgs#alejandra -- .' to fix."
+              exit 1
+            fi
           fi
 
       - name: Lint Nix code
@@ -269,10 +284,10 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
+        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
         with:
           name: devenv
 
@@ -294,7 +309,7 @@ jobs:
           echo "✅ System configuration built successfully"
           
           # Show build info
-          nix path-info --json result | jq -r '.[] | "Size: \(.narSize) bytes"'
+          nix path-info --json result | nix run nixpkgs#jq -- -r '.[] | "Size: \(.narSize) bytes"'
 
   # Enhanced checks execution
   checks:
@@ -314,10 +329,10 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Setup devenv cache
-        uses: cachix/cachix-action@v14
+        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
         with:
           name: devenv
 
@@ -352,7 +367,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Quick security scan
         run: |

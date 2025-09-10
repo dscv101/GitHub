@@ -23,7 +23,7 @@ lint-all:
     statix check
     deadnix
     shellcheck scripts/*.sh
-    markdownlint *.md
+    @just markdownlint
     yamllint .
     actionlint
     @echo "✅ All linting checks completed!"
@@ -46,7 +46,12 @@ shfmt:
 
 # Check Markdown files
 markdownlint:
-    markdownlint *.md
+    #!/usr/bin/env bash
+    if find . -name "*.md" -not -path "./.git/*" | head -1 | read -r; then
+        find . -name "*.md" -not -path "./.git/*" -exec markdownlint {} +
+    else
+        echo "No markdown files found"
+    fi
 
 # Check YAML files
 yamllint:
@@ -198,7 +203,7 @@ jj-add pattern="." :
     @just _jj-check-install
     @just _jj-check-repo
     @echo "📁 Adding files: {{pattern}}"
-    jj file add "{{pattern}}"
+    jj add "{{pattern}}"
     @echo "✅ Files added to working copy"
 
 # Create a commit with optional message

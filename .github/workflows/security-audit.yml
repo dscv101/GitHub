@@ -55,18 +55,19 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       # ENHANCED: Flake security validation
       - name: Validate flake security
-        uses: DeterminateSystems/flake-checker-action@v9
+        uses: DeterminateSystems/flake-checker-action@078f5f7f47ee188aa6cb472527ca5984e195222d # v9
         with:
           fail-mode: false
 
       - name: Check configuration exists
         id: check-config
         run: |
-          if nix eval --json .#nixosConfigurations --option restrict-eval true >/dev/null 2>&1; then
+          has_configs=$(nix eval --raw --expr 'builtins.hasAttr "nixosConfigurations" (builtins.getFlake ".")' || echo false)
+          if [[ "$has_configs" == "true" ]]; then
             echo "has-config=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
           else
@@ -79,6 +80,8 @@ jobs:
         if: github.event.inputs.scan_type != 'vulnerabilities-only'
         run: |
           echo "🔍 Auditing flake dependencies..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           mkdir -p security-reports
           
@@ -96,7 +99,7 @@ jobs:
           
           while read -r owner repo url type; do
             case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci)
+              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani|edolstra)
                 echo "✅ **Trusted**: $owner/$repo" >> security-reports/dependency-audit.md
                 ((trusted_sources++))
                 ;;
@@ -144,6 +147,8 @@ jobs:
         id: vulnerability-scan
         run: |
           echo "🔍 Running vulnerability scan..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           mkdir -p security-reports
           

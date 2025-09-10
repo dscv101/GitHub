@@ -1,0 +1,21 @@
+# Nix build outputs
+result
+result-*
+
+# Local caches and environments
+.direnv/
+.devenv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Update backups and artifacts
+flake-backups/
+*.log
+
+# Local env files
+.env
+
+# Jujutsu repo metadata (created by tests or local use)
+.jj/

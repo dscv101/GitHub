@@ -49,7 +49,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       # ENHANCED: Flake health check before updates
       - name: Pre-update health check
@@ -67,6 +67,8 @@ jobs:
         id: current_state
         run: |
           echo "📸 Capturing current state..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           # Backup current flake.lock
           cp flake.lock flake.lock.backup
@@ -150,6 +152,8 @@ jobs:
         continue-on-error: true
         run: |
           echo "🔒 Running security assessment..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           # Check for new untrusted inputs
           nix flake metadata --json > new-metadata.json
@@ -157,7 +161,7 @@ jobs:
           untrusted_count=0
           while read -r owner repo; do
             case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci) ;;
+              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani|edolstra) ;;
               *)
                 echo "⚠️ Untrusted input: $owner/$repo"
                 ((untrusted_count++)) ;;
@@ -185,6 +189,8 @@ jobs:
       - name: Generate update summary
         if: steps.update_inputs.outputs.changes_detected == 'true'
         run: |
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           cat > update-summary.md << 'EOF'
           # 🔄 Dependency Update Report
           

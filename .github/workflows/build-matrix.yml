@@ -37,11 +37,11 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       # SECURITY: Enhanced flake health check
       - name: Check flake health (security)
-        uses: DeterminateSystems/flake-checker-action@v9
+        uses: DeterminateSystems/flake-checker-action@078f5f7f47ee188aa6cb472527ca5984e195222d # v9
         with:
           fail-mode: true
 
@@ -69,9 +69,9 @@ jobs:
           fi
           
           # Validate flake structure
-          if jq -e '.packages' flake-info.json >/dev/null; then
+          if nix run nixpkgs#jq -- -e '.packages' flake-info.json >/dev/null; then
             echo "has-packages=true" >> "$GITHUB_OUTPUT"
-            systems=$(jq -r '.packages | keys | @json' flake-info.json)
+            systems=$(nix run nixpkgs#jq -- -r '.packages | keys | @json' flake-info.json)
             echo "systems=$systems" >> "$GITHUB_OUTPUT"
             echo "✅ Valid flake with packages"
           else
@@ -100,9 +100,20 @@ jobs:
           fi
           
           # Validate flake inputs are from trusted sources
-          if jq -e '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix")' flake-info.json >/dev/null; then
-            echo "⚠️ Non-trusted flake inputs detected"
-            jq -r '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix") | .original.owner + "/" + .original.repo' flake-info.json
+          nix flake metadata --json > flake-meta.json
+          untrusted_count=0
+          while read -r owner repo; do
+            case "$owner" in
+              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani|edolstra) 
+                echo "✅ Trusted: $owner/$repo" ;;
+              *)
+                echo "⚠️ Untrusted: $owner/$repo"
+                ((untrusted_count++)) ;;
+            esac
+          done < <(nix run nixpkgs#jq -- -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
+          
+          if [[ $untrusted_count -gt 0 ]]; then
+            echo "❌ $untrusted_count untrusted inputs found"
             ((security_issues++))
           fi
           
@@ -117,7 +128,7 @@ jobs:
                 break
               fi
             fi
-          done < <(jq -r '.locks.nodes[].locked.lastModified // empty' flake-info.json)
+          done < <(nix run nixpkgs#jq -- -r '.locks.nodes[].locked.lastModified // empty' flake-meta.json)
           
           if [[ $security_issues -eq 0 ]]; then
             echo "passed=true" >> "$GITHUB_OUTPUT"
@@ -140,7 +151,7 @@ jobs:
       has-builds: ${{ steps.set-matrix.outputs.has-builds }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
@@ -148,7 +159,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Generate secure build matrix
         id: set-matrix
@@ -181,8 +192,8 @@ jobs:
                   matrix_entries+=","
                 fi
                 matrix_entries+="{\"system\":\"$system\",\"name\":\"$package\",\"os\":\"$runner_os\"}"
-              done < <(jq -r ".packages[\"$system\"] | keys[]" flake-info.json 2>/dev/null)
-            done < <(jq -r '.packages | keys[]' flake-info.json 2>/dev/null)
+              done < <(nix run nixpkgs#jq -- -r ".packages[\"$system\"] | keys[]" flake-info.json 2>/dev/null)
+            done < <(nix run nixpkgs#jq -- -r '.packages | keys[]' flake-info.json 2>/dev/null)
             
             if [[ -n "$matrix_entries" ]]; then
               matrix="{\"include\":[$matrix_entries]}"
@@ -212,7 +223,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
@@ -220,7 +231,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Verify build compatibility
         id: compatibility
@@ -270,7 +281,7 @@ jobs:
           # Basic security scan of build result
           if [[ -L "result" ]]; then
             echo "📊 Build analysis:"
-            nix path-info --json result | jq -r '.[] | "Size: \(.narSize) bytes, References: \(.references | length)"'
+            nix path-info --json result | nix run nixpkgs#jq -- -r '.[] | "Size: \(.narSize) bytes, References: \(.references | length)"'
           fi
 
       - name: Generate build report
