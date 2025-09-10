@@ -37,7 +37,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       # SECURITY: Enhanced flake health check
       - name: Check flake health (security)
@@ -48,6 +48,8 @@ jobs:
       - name: Validate flake structure
         id: check-flake
         run: |
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           # Verify flake.nix exists
           if [[ ! -f "flake.nix" ]]; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -85,6 +87,8 @@ jobs:
         id: security-check
         run: |
           echo "🔍 Running security checks..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           security_issues=0
           
@@ -100,9 +104,9 @@ jobs:
           fi
           
           # Validate flake inputs are from trusted sources
-          if jq -e '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix")' flake-info.json >/dev/null; then
+          if jq -e '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix" and .original.owner != "numtide" and .original.owner != "hercules-ci" and .original.owner != "Mic92" and .original.owner != "nlewo" and .original.owner != "rrbutani")' flake-info.json >/dev/null; then
             echo "⚠️ Non-trusted flake inputs detected"
-            jq -r '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix") | .original.owner + "/" + .original.repo' flake-info.json
+            jq -r '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix" and .original.owner != "numtide" and .original.owner != "hercules-ci" and .original.owner != "Mic92" and .original.owner != "nlewo" and .original.owner != "rrbutani") | .original.owner + "/" + .original.repo' flake-info.json
             ((security_issues++))
           fi
           
@@ -148,12 +152,14 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Generate secure build matrix
         id: set-matrix
         run: |
           echo "🔨 Generating build matrix..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           # Try custom matrix first
           if matrix=$(nix eval --json .#githubActions.matrix 2>/dev/null); then
@@ -220,7 +226,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       - name: Verify build compatibility
         id: compatibility
@@ -250,6 +256,8 @@ jobs:
             max-jobs = auto
         run: |
           echo "🚀 Building ${{ matrix.name }} for ${{ matrix.system }}"
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           build_args=(
             "--print-build-logs"

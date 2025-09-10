@@ -55,7 +55,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
 
       - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
       # ENHANCED: Flake security validation
       - name: Validate flake security
@@ -79,6 +79,8 @@ jobs:
         if: github.event.inputs.scan_type != 'vulnerabilities-only'
         run: |
           echo "🔍 Auditing flake dependencies..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           mkdir -p security-reports
           
@@ -96,7 +98,7 @@ jobs:
           
           while read -r owner repo url type; do
             case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci)
+              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani)
                 echo "✅ **Trusted**: $owner/$repo" >> security-reports/dependency-audit.md
                 ((trusted_sources++))
                 ;;
@@ -144,6 +146,8 @@ jobs:
         id: vulnerability-scan
         run: |
           echo "🔍 Running vulnerability scan..."
+          # Ensure jq is available via Nix
+          jq() { nix run nixpkgs#jq -- "$@"; }
           
           mkdir -p security-reports
           
