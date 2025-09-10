@@ -66,7 +66,8 @@ jobs:
       - name: Check configuration exists
         id: check-config
         run: |
-          if nix eval --json .#nixosConfigurations --option restrict-eval true >/dev/null 2>&1; then
+          has_configs=$(nix eval --raw --expr 'builtins.hasAttr "nixosConfigurations" (builtins.getFlake ".")' || echo false)
+          if [[ "$has_configs" == "true" ]]; then
             echo "has-config=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
           else

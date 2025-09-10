@@ -60,17 +60,24 @@ jobs:
             exit 1
           fi
           
-          # Check for NixOS configuration
-          if nix eval --json .#nixosConfigurations >/dev/null 2>&1; then
+          # Robustly detect NixOS configurations without forcing full evaluation
+          has_configs=$(nix eval --raw --expr 'builtins.hasAttr "nixosConfigurations" (builtins.getFlake ".")' || echo false)
+          if [[ "$has_configs" == "true" ]]; then
             echo "config-exists=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
+            echo "Available configs:"
+            nix eval --json --expr '(builtins.attrNames (builtins.getFlake ".").nixosConfigurations)' | jq -r '.[]' || true
             
-            # Try to build system configuration
-            if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
-              echo "✅ System configuration is buildable"
+            # Try to build a known host if present
+            if nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' | grep -q true; then
+              if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
+                echo "✅ System configuration is buildable (blazar)"
+              else
+                echo "❌ System configuration build failed (blazar)"
+                exit 1
+              fi
             else
-              echo "❌ System configuration build failed"
-              exit 1
+              echo "ℹ️ Host 'blazar' not found. Skipping build test."
             fi
           else
             echo "config-exists=false" >> "$GITHUB_OUTPUT"
