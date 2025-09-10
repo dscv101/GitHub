@@ -31,6 +31,7 @@ jobs:
     outputs:
       config-exists: ${{ steps.check-config.outputs.exists }}
       has-checks: ${{ steps.check-config.outputs.has-checks }}
+      has-blazar: ${{ steps.check-config.outputs.has-blazar }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -67,18 +68,6 @@ jobs:
             echo "✅ NixOS configurations found"
             echo "Available configs:"
             nix eval --json --expr '(builtins.attrNames (builtins.getFlake ".").nixosConfigurations)' | nix run nixpkgs#jq -- -r '.[]' || true
-            
-            # Try to build a known host if present
-            if nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' | grep -q true; then
-              if nix build .#nixosConfigurations.blazar.config.system.build.toplevel --show-trace --dry-run; then
-                echo "✅ System configuration is buildable (blazar)"
-              else
-                echo "❌ System configuration build failed (blazar)"
-                exit 1
-              fi
-            else
-              echo "ℹ️ Host 'blazar' not found. Skipping build test."
-            fi
           else
             echo "config-exists=false" >> "$GITHUB_OUTPUT"
             echo "ℹ️ No NixOS configurations found"
@@ -91,6 +80,15 @@ jobs:
           else
             echo "has-checks=false" >> "$GITHUB_OUTPUT"
             echo "ℹ️ No validation checks found"
+          fi
+          
+          # Check for blazar host configuration
+          has_blazar=$(nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' || echo false)
+          echo "has-blazar=$has_blazar" >> "$GITHUB_OUTPUT"
+          if [[ "$has_blazar" == "true" ]]; then
+            echo "✅ Blazar host configuration found"
+          else
+            echo "ℹ️ No blazar host configuration found"
           fi
 
       # SECURITY: Validate dependencies and inputs
@@ -270,7 +268,7 @@ jobs:
   build-validation:
     runs-on: ubuntu-latest
     needs: validate
-    if: needs.validate.outputs.config-exists == 'true'
+    if: needs.validate.outputs.config-exists == 'true' && needs.validate.outputs.has-blazar == 'true'
     timeout-minutes: 30
     permissions:
       contents: read
@@ -352,7 +350,7 @@ jobs:
   security-audit:
     runs-on: ubuntu-latest
     needs: validate
-    if: needs.validate.outputs.config-exists == 'true'
+    if: needs.validate.outputs.config-exists == 'true' && needs.validate.outputs.has-blazar == 'true'
     timeout-minutes: 15
     permissions:
       contents: read
