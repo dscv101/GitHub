@@ -62,10 +62,16 @@ _: {
 
       # GitHub Actions linting (conditional on workflows directory existence)
       actionlint-check = pkgs.runCommand "actionlint-check" {} ''
-        if [ -d "${./../../../.github/workflows}" ] && [ -n "$(find ${./../../../.github/workflows} -name '*.yml' -o -name '*.yaml' 2>/dev/null)" ]; then
-          ${pkgs.actionlint}/bin/actionlint ${./../../../.github/workflows}/*.yml ${./../../../.github/workflows}/*.yaml 2>/dev/null || true
+        if [ -d "${./../../../.github/workflows}" ]; then
+          # Find and lint all workflow files
+          find ${./../../../.github/workflows} -name '*.yml' -o -name '*.yaml' | while read -r file; do
+            ${pkgs.actionlint}/bin/actionlint "$file" || true
+          done
+          if [ -z "$(find ${./../../../.github/workflows} -name '*.yml' -o -name '*.yaml' 2>/dev/null)" ]; then
+            echo "No GitHub Actions workflows found to check"
+          fi
         else
-          echo "No GitHub Actions workflows found to check"
+          echo "No GitHub Actions workflows directory found"
         fi
         touch $out
       '';
