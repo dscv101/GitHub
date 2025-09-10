@@ -104,9 +104,9 @@ jobs:
           fi
           
           # Validate flake inputs are from trusted sources
-          if jq -e '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix" and .original.owner != "numtide" and .original.owner != "hercules-ci" and .original.owner != "Mic92" and .original.owner != "nlewo" and .original.owner != "rrbutani")' flake-info.json >/dev/null; then
+          if jq -e '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix" and .original.owner != "numtide" and .original.owner != "hercules-ci" and .original.owner != "Mic92" and .original.owner != "nlewo" and .original.owner != "rrbutani" and .original.owner != "edolstra")' flake-info.json >/dev/null; then
             echo "⚠️ Non-trusted flake inputs detected"
-            jq -r '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix" and .original.owner != "numtide" and .original.owner != "hercules-ci" and .original.owner != "Mic92" and .original.owner != "nlewo" and .original.owner != "rrbutani") | .original.owner + "/" + .original.repo' flake-info.json
+            jq -r '.locks.nodes[] | select(.original.owner != "NixOS" and .original.owner != "nix-community" and .original.owner != "cachix" and .original.owner != "numtide" and .original.owner != "hercules-ci" and .original.owner != "Mic92" and .original.owner != "nlewo" and .original.owner != "rrbutani" and .original.owner != "edolstra") | .original.owner + "/" + .original.repo' flake-info.json
             ((security_issues++))
           fi
           

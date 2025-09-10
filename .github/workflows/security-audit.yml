@@ -98,7 +98,7 @@ jobs:
           
           while read -r owner repo url type; do
             case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani)
+              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani|edolstra)
                 echo "✅ **Trusted**: $owner/$repo" >> security-reports/dependency-audit.md
                 ((trusted_sources++))
                 ;;

@@ -108,7 +108,7 @@ jobs:
           untrusted_count=0
           while read -r owner repo; do
             case "$owner" in
-              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani) 
+              NixOS|nix-community|cachix|numtide|hercules-ci|Mic92|nlewo|rrbutani|edolstra) 
                 echo "✅ Trusted: $owner/$repo" ;;
               *)
                 echo "⚠️ Untrusted: $owner/$repo"
