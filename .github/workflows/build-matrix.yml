@@ -50,7 +50,9 @@ jobs:
         run: |
           set -euo pipefail
           # Ensure jq is available via Nix
-          command -v jq >/dev/null 2>&1 || jq() { nix run nixpkgs#jq -- "$@"; }
+          if ! command -v jq >/dev/null 2>&1; then
+            jq() { nix run nixpkgs#jq -- "$@"; }
+          fi
           # Verify flake.nix exists
           if [[ ! -f "flake.nix" ]]; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
