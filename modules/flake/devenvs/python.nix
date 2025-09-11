@@ -1,5 +1,32 @@
-_: {
-  perSystem = {pkgs, ...}: {
+{inputs, ...}: {
+  perSystem = {pkgs, sharedPackages, ...}: let
+    # Python-specific packages
+    pythonPackages = [
+      # Python package manager and tools
+      pkgs.uv
+
+      # Linting and formatting
+      pkgs.ruff
+      pkgs.mypy
+      pkgs.bandit
+
+      # Testing and coverage
+      pkgs.python3Packages.pytest
+      pkgs.python3Packages.pytest-cov
+      pkgs.python3Packages.coverage
+
+      # Development tools
+      pkgs.python3Packages.ipython
+      pkgs.python3Packages.jupyterlab
+      pkgs.python3Packages.black
+      pkgs.python3Packages.isort
+
+      # Additional useful packages
+      pkgs.python3Packages.pip-tools
+      pkgs.python3Packages.virtualenv
+      pkgs.python3Packages.pipx
+    ];
+  in {
     devenv.shells.python = {
       name = "python-dev";
 
@@ -16,31 +43,10 @@ _: {
         };
       };
 
-      packages = [
-        # Python package manager and tools
-        pkgs.uv
-
-        # Linting and formatting
-        pkgs.ruff
-        pkgs.mypy
-        pkgs.bandit
-
-        # Testing and coverage
-        pkgs.python3Packages.pytest
-        pkgs.python3Packages.pytest-cov
-        pkgs.python3Packages.coverage
-
-        # Development tools
-        pkgs.python3Packages.ipython
-        pkgs.python3Packages.jupyterlab
-        pkgs.python3Packages.black
-        pkgs.python3Packages.isort
-
-        # Additional useful packages
-        pkgs.python3Packages.pip-tools
-        pkgs.python3Packages.virtualenv
-        pkgs.python3Packages.pipx
-      ];
+      packages = inputs.self.lib.devenv.mkPackages {
+        base = sharedPackages.common;
+        language = pythonPackages;
+      };
 
       env = {
         PYTHONPATH = "$PWD";

@@ -22,15 +22,14 @@ nix develop --no-pure-eval .#julia    # Julia with Jupyter, scientific libs
 If you have devenv installed globally:
 
 ```bash
-# Traditional devenv shell
-devenv shell
-
-# Language-specific shells (requires flake support)
+# Language-specific shells (flake-based)
 devenv shell python
 devenv shell rust
 devenv shell zig
 devenv shell julia
 ```
+
+**Note**: The standalone `devenv.nix` file has been removed. All development environments are now unified under the flake-based approach for consistency and to eliminate duplication.
 
 ## Available Environments
 
@@ -126,9 +125,14 @@ The devenv configuration is integrated with flake-parts in `modules/flake/devenv
 - `zig.nix` - Zig-specific environment
 - `julia.nix` - Julia-specific environment
 
-### Traditional devenv.nix
+### Shared Package Architecture
 
-A traditional `devenv.nix` file is also provided at the repository root for users who prefer the devenv CLI approach.
+The development environments now use a shared package architecture to eliminate duplication:
+
+- **Shared packages** are defined in `modules/flake/lib/packages.nix`
+- **Common tools** (git, direnv, formatters, etc.) are shared across all environments
+- **Language-specific packages** are added on top of the common base
+- **Single source of truth** for all development dependencies
 
 ### Binary Cache
 

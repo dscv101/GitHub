@@ -1,39 +1,42 @@
-_: {
-  perSystem = {pkgs, ...}: {
+{inputs, ...}: {
+  perSystem = {pkgs, sharedPackages, ...}: let
+    # Julia-specific packages
+    juliaPackages = [
+      # Julia
+      pkgs.julia-bin
+
+      # System dependencies commonly needed for Julia packages
+      pkgs.gcc
+      pkgs.gfortran
+      pkgs.pkg-config
+      pkgs.cmake
+
+      # Linear algebra libraries
+      pkgs.openblas
+      pkgs.lapack
+
+      # Graphics and plotting dependencies
+      pkgs.cairo
+      pkgs.pango
+      pkgs.glib
+
+      # Additional useful tools
+      pkgs.jupyter
+
+      # Documentation
+      pkgs.pandoc
+    ];
+  in {
     devenv.shells.julia = {
       name = "julia-dev";
 
       # Containers disabled for simplicity - can be enabled later if needed
       # containers.enable = false; # Commented out due to type mismatch
 
-      packages = [
-        # Julia
-        pkgs.julia-bin
-
-        # Development tools
-        pkgs.git
-
-        # System dependencies commonly needed for Julia packages
-        pkgs.gcc
-        pkgs.gfortran
-        pkgs.pkg-config
-        pkgs.cmake
-
-        # Linear algebra libraries
-        pkgs.openblas
-        pkgs.lapack
-
-        # Graphics and plotting dependencies
-        pkgs.cairo
-        pkgs.pango
-        pkgs.glib
-
-        # Additional useful tools
-        pkgs.jupyter
-
-        # Documentation
-        pkgs.pandoc
-      ];
+      packages = inputs.self.lib.devenv.mkPackages {
+        base = sharedPackages.common;
+        language = juliaPackages;
+      };
 
       env = {
         JULIA_DEPOT_PATH = "$PWD/.julia";
