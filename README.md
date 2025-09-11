@@ -147,18 +147,17 @@ This repository includes comprehensive Claude Code integration for AI-assisted d
 # Quick setup - copy global config template
 cp templates/claude-global-config.md ~/.claude/CLAUDE.md
 
-# Enable in your devenv.nix
-echo '{ claude.code.enable = true; }' >> devenv.nix
+# Enable in your flake development environment
+# All development environments now use the unified flake-based approach
 
-# Use templates for advanced features
-cp templates/devenv/claude/with-hooks.nix devenv.nix    # Git hooks + formatting
-cp templates/devenv/claude/commands.nix devenv.nix     # Custom /commands
-cp templates/devenv/claude/agents.nix devenv.nix       # Specialized agents
+# Use templates for advanced features (if available)
+# Note: Legacy devenv.nix templates in templates/devenv/ are deprecated
+# All development environments now use the unified flake-based approach
 ```
 
 **Features:**
 
-- 🤖 **Automatic devenv shell integration** - Claude executes all commands in proper environment
+- 🤖 **Automatic development shell integration** - Claude executes all commands in proper flake-based environment
 - 🔒 **Security hooks** - Protects sensitive files (`*.env`, `*.secret`, `*.key`, etc.)
 - 🧪 **Automated testing** - Runs tests after Claude makes changes
 - 🎨 **Auto-formatting** - Runs nixfmt, black, prettier, rustfmt after edits

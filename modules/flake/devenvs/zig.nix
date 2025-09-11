@@ -1,5 +1,27 @@
-_: {
-  perSystem = {pkgs, ...}: {
+{inputs, ...}: {
+  perSystem = {pkgs, sharedPackages, ...}: let
+    # Zig-specific packages
+    zigPackages = [
+      # Zig toolchain
+      pkgs.zig
+      pkgs.zls # Zig Language Server
+
+      # Development tools
+      pkgs.gdb
+      pkgs.lldb
+      pkgs.valgrind
+
+      # Build tools
+      pkgs.cmake
+      pkgs.ninja
+
+      # System dependencies
+      pkgs.pkg-config
+
+      # Documentation
+      pkgs.doxygen
+    ];
+  in {
     devenv.shells.zig = {
       name = "zig-dev";
 
@@ -10,26 +32,10 @@ _: {
         enable = true;
       };
 
-      packages = [
-        # Zig toolchain
-        pkgs.zig
-        pkgs.zls # Zig Language Server
-
-        # Development tools
-        pkgs.gdb
-        pkgs.lldb
-        pkgs.valgrind
-
-        # Build tools
-        pkgs.cmake
-        pkgs.ninja
-
-        # System dependencies
-        pkgs.pkg-config
-
-        # Documentation
-        pkgs.doxygen
-      ];
+      packages = inputs.self.lib.devenv.mkPackages {
+        base = sharedPackages.common;
+        language = zigPackages;
+      };
 
       env = {
         ZIG_GLOBAL_CACHE_DIR = "$PWD/.zig-cache";

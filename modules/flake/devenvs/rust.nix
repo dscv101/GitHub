@@ -1,5 +1,30 @@
-_: {
-  perSystem = {pkgs, ...}: {
+{inputs, ...}: {
+  perSystem = {pkgs, sharedPackages, ...}: let
+    # Rust-specific packages
+    rustPackages = [
+      # Rust toolchain (additional tools)
+      pkgs.cargo-watch
+      pkgs.cargo-edit
+      pkgs.cargo-audit
+      pkgs.cargo-outdated
+      # pkgs.cargo-tree # Not available in current nixpkgs
+      pkgs.cargo-expand
+      pkgs.cargo-bloat
+      pkgs.cargo-deny
+      pkgs.cargo-nextest
+
+      # Development tools
+      pkgs.bacon # Background rust code checker
+      pkgs.sccache # Compilation cache
+
+      # System dependencies commonly needed
+      pkgs.pkg-config
+      pkgs.openssl
+
+      # Documentation
+      pkgs.mdbook
+    ];
+  in {
     devenv.shells.rust = {
       name = "rust-dev";
 
@@ -13,29 +38,10 @@ _: {
         components = ["rustc" "cargo" "clippy" "rustfmt" "rust-analyzer"];
       };
 
-      packages = [
-        # Rust toolchain (additional tools)
-        pkgs.cargo-watch
-        pkgs.cargo-edit
-        pkgs.cargo-audit
-        pkgs.cargo-outdated
-        # pkgs.cargo-tree # Not available in current nixpkgs
-        pkgs.cargo-expand
-        pkgs.cargo-bloat
-        pkgs.cargo-deny
-        pkgs.cargo-nextest
-
-        # Development tools
-        pkgs.bacon # Background rust code checker
-        pkgs.sccache # Compilation cache
-
-        # System dependencies commonly needed
-        pkgs.pkg-config
-        pkgs.openssl
-
-        # Documentation
-        pkgs.mdbook
-      ];
+      packages = inputs.self.lib.devenv.mkPackages {
+        base = sharedPackages.common;
+        language = rustPackages;
+      };
 
       env = {
         RUST_BACKTRACE = "1";

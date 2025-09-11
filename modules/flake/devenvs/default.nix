@@ -7,9 +7,7 @@
     ./julia.nix
   ];
 
-  # Let devenv auto-detect the flake root - no explicit setting needed
-
-  perSystem = {pkgs, ...}: {
+  perSystem = {pkgs, sharedPackages, ...}: {
     # Base development shell with common tools
     devenv.shells.default = {
       name = "nix-blazar-dev";
@@ -17,49 +15,7 @@
       # Containers disabled for simplicity - can be enabled later if needed
       # containers.enable = false; # Commented out due to type mismatch
 
-      packages = [
-        # Version control
-        pkgs.git
-        pkgs.jujutsu
-
-        # Development environment
-        pkgs.direnv
-        pkgs.devenv
-
-        # Nix tooling
-        pkgs.alejandra
-        pkgs.statix
-        pkgs.deadnix
-        pkgs.nixfmt-rfc-style
-        pkgs.nix-tree
-        pkgs.nix-diff
-        pkgs.nixpkgs-review
-        pkgs.nurl
-
-        # Shell script tooling
-        pkgs.shellcheck
-        pkgs.shfmt
-
-        # Documentation and config linting
-        pkgs.markdownlint-cli
-        pkgs.yamllint
-        pkgs.actionlint
-
-        # Additional formatters and tools
-        pkgs.keep-sorted
-        pkgs.taplo
-        pkgs.stylua
-        pkgs.treefmt
-
-        # Useful development tools
-        pkgs.just
-        pkgs.sops
-        pkgs.age
-        pkgs.curl
-        pkgs.wget
-        pkgs.jq
-        pkgs.yq
-      ];
+      packages = sharedPackages.full;
 
       env = {
         # Remove DEVENV_ROOT as it's handled by devenv.root
@@ -80,6 +36,27 @@
         echo "  nix flake check      - Validate flake"
         echo ""
       '';
+
+      # Git hooks for code quality (disabled for now to focus on package consolidation)
+      # git-hooks.hooks = {
+      #   # Nix
+      #   alejandra.enable = true;
+      #   statix.enable = true;
+      #   deadnix.enable = true;
+      #
+      #   # Shell scripts
+      #   shellcheck.enable = true;
+      #   shfmt.enable = true;
+      #
+      #   # Documentation
+      #   markdownlint.enable = true;
+      #
+      #   # General
+      #   check-yaml.enable = true;
+      #   check-toml.enable = true;
+      #   end-of-file-fixer.enable = true;
+      #   trailing-whitespace.enable = true;
+      # };
     };
   };
 }
