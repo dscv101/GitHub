@@ -340,3 +340,99 @@ backup-status:
 # Show backup logs
 backup-logs:
     sudo journalctl -u restic-backup.service -f
+
+# ============================================================================
+# Cache Management
+# ============================================================================
+
+# Setup Cachix cache (run once)
+cache-setup:
+    #!/usr/bin/env bash
+    echo "🗄️ Setting up Cachix cache..."
+    if ! command -v cachix &> /dev/null; then
+        echo "Installing cachix..."
+        nix profile install nixpkgs#cachix
+    fi
+
+    echo "Creating cache 'nix-blazar'..."
+    cachix create nix-blazar
+    echo "✅ Cache setup complete!"
+    echo "💡 Add the auth token to your secrets: just edit-secrets"
+
+# Push custom packages to cache
+cache-push-packages:
+    #!/usr/bin/env bash
+    echo "📦 Building and pushing custom packages to cache..."
+    if nix eval --json .#packages.x86_64-linux >/dev/null 2>&1; then
+        packages=$(nix eval --json .#packages.x86_64-linux | nix run nixpkgs#jq -- -r 'keys[]')
+        for package in $packages; do
+            echo "Building and pushing: $package"
+            nix build ".#packages.x86_64-linux.$package" --print-build-logs
+            cachix push nix-blazar result
+        done
+    else
+        echo "No custom packages found"
+    fi
+
+# Push development shells to cache
+cache-push-devshells:
+    #!/usr/bin/env bash
+    echo "🧪 Building and pushing development shells to cache..."
+
+    # Default shell
+    echo "Building default devShell..."
+    nix develop --command true
+
+    # Language-specific shells
+    for shell in python rust zig julia; do
+        echo "Building $shell devShell..."
+        if nix develop ".#$shell" --command true; then
+            echo "✅ $shell shell cached"
+        else
+            echo "❌ $shell shell failed"
+        fi
+    done
+
+# Push system configuration to cache
+cache-push-system:
+    #!/usr/bin/env bash
+    echo "🏗️ Building and pushing system configuration to cache..."
+    if nix eval --json .#nixosConfigurations >/dev/null 2>&1; then
+        configs=$(nix eval --json .#nixosConfigurations | nix run nixpkgs#jq -- -r 'keys[]')
+        for config in $configs; do
+            echo "Building and pushing: $config"
+            nix build ".#nixosConfigurations.$config.config.system.build.toplevel" --print-build-logs
+            cachix push nix-blazar result
+        done
+    else
+        echo "No NixOS configurations found"
+    fi
+
+# Push everything to cache
+cache-push-all:
+    @echo "🚀 Pushing all builds to cache..."
+    @just cache-push-packages
+    @just cache-push-devshells
+    @just cache-push-system
+    @echo "✅ All builds pushed to cache!"
+
+# Check cache status
+cache-status:
+    #!/usr/bin/env bash
+    echo "📊 Cache status for nix-blazar:"
+    if command -v cachix &> /dev/null; then
+        cachix info nix-blazar
+    else
+        echo "❌ Cachix not installed. Run: nix profile install nixpkgs#cachix"
+    fi
+
+# Use cache for builds (configure substituters)
+cache-use:
+    #!/usr/bin/env bash
+    echo "🔧 Configuring cache usage..."
+    if command -v cachix &> /dev/null; then
+        cachix use nix-blazar
+        echo "✅ Cache configured for use"
+    else
+        echo "❌ Cachix not installed. Run: nix profile install nixpkgs#cachix"
+    fi

@@ -21,6 +21,10 @@ _: {
       GHCR_USER = {};
       GHCR_TOKEN = {};
 
+      # Cachix private cache authentication
+      CACHIX_AUTH_TOKEN = {};
+      CACHIX_SIGNING_KEY = {};
+
       # Runtime envfile to drive restic (constructed by sops; see README)
       restic_env = {
         name = "restic_env";
