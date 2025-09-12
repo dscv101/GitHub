@@ -33,10 +33,10 @@
       # Containers disabled for simplicity - can be enabled later if needed
       # containers.enable = false; # Commented out due to type mismatch
 
-      packages = inputs.self.lib.devenv.mkPackages {
-        base = sharedPackages.common;
-        language = juliaPackages;
-      };
+      packages = let
+        inherit (inputs.nixpkgs.lib) concatLists;
+      in
+        concatLists [sharedPackages.common juliaPackages];
 
       env = {
         JULIA_DEPOT_PATH = "$PWD/.julia";

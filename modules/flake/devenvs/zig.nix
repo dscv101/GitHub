@@ -32,10 +32,10 @@
         enable = true;
       };
 
-      packages = inputs.self.lib.devenv.mkPackages {
-        base = sharedPackages.common;
-        language = zigPackages;
-      };
+      packages = let
+        inherit (inputs.nixpkgs.lib) concatLists;
+      in
+        concatLists [sharedPackages.common zigPackages];
 
       env = {
         ZIG_GLOBAL_CACHE_DIR = "$PWD/.zig-cache";

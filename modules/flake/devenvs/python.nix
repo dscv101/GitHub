@@ -44,10 +44,10 @@
         };
       };
 
-      packages = inputs.self.lib.devenv.mkPackages {
-        base = sharedPackages.common;
-        language = pythonPackages;
-      };
+      packages = let
+        inherit (inputs.nixpkgs.lib) concatLists;
+      in
+        concatLists [sharedPackages.common pythonPackages];
 
       env = {
         PYTHONPATH = "$PWD";
