@@ -1,8 +1,13 @@
 {
+  lib,
+  config,
+  ...
+}: {
   imports = [
     ./shell
-    ./development
-    ./desktop
     ./theming
-  ];
+  ] ++
+  # Conditional imports for better performance
+  (lib.optional config.modules.desktop.enable ./desktop) ++
+  (lib.optional config.modules.development.enable ./development);
 }
