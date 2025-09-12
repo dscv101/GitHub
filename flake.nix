@@ -15,65 +15,45 @@
   outputs = inputs: inputs.flake-parts.lib.mkFlake {inherit inputs;} {imports = [./modules/flake/default.nix];};
 
   inputs = {
-    # Main package supplier
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Core system dependencies - pinned for reproducibility
+    nixpkgs.url = "github:NixOS/nixpkgs/250b695f41e0";
 
-    # Flake management
+    # Flake ecosystem
     flake-parts = {
-      url = "github:hercules-ci/flake-parts";
+      url = "github:hercules-ci/flake-parts/4524271976b625a4a605beefd893f270620fd751";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
 
-    # Home Manager for user configuration
+    # System configuration
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/6d7c11a0adee0db21e3a8ef90ae07bb89bc20b8f";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Secrets management
     sops-nix = {
-      url = "github:Mic92/sops-nix";
+      url = "github:Mic92/sops-nix/0bf793823386187dff101ee2a9d4ed26de8bbf8c";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Disk partitioning
     disko = {
-      url = "github:nix-community/disko";
+      url = "github:nix-community/disko/146f45bee02b8bd88812cfce6ffc0f933788875a";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Impermanence support
     impermanence = {
-      url = "github:nix-community/impermanence";
-    };
-
-    # Pre-commit hooks (optional)
-    pre-commit-hooks = {
-      url = "github:cachix/pre-commit-hooks.nix";
+      url = "github:nix-community/impermanence/4b3e914cdf97a5b536a889e939fb2fd2b043a170";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Unified formatter
+    # Development tools
     treefmt-nix = {
-      url = "github:numtide/treefmt-nix";
+      url = "github:numtide/treefmt-nix/1aabc6c05ccbcbf4a635fb7a90400e44282f61c4";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Development environments
     devenv = {
-      url = "github:cachix/devenv";
+      url = "github:cachix/devenv/c57bded76fa6a885ab1dee2c75216cc23d58b311";
       inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # Container support for devenv
-    nix2container = {
-      url = "github:nlewo/nix2container";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # Shell binary support for devenv containers
-    mk-shell-bin = {
-      url = "github:rrbutani/nix-mk-shell-bin";
     };
   };
 }
