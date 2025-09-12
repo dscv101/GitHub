@@ -27,7 +27,7 @@
         # Python-specific environment variables
         export PYTHONPATH="$PWD"
         export UV_CACHE_DIR="$PWD/.uv-cache"
-        export MYPY_CACHE_DIR="$PWD/.mypy_cache"
+        export PYREFLY_CACHE_DIR="$PWD/.pyrefly_cache"
         export PYTEST_CACHE_DIR="$PWD/.pytest_cache"
         
         # Enable lazy loading for other languages

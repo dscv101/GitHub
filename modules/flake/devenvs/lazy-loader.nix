@@ -58,11 +58,11 @@
       # Python tools
       python = mkLazyLoader {
         name = "python";
-        packages = with pkgs; [python3 uv ruff mypy];
+        packages = with pkgs; [python3 uv ruff];  # pyrefly installed via uv/pip
         setupScript = ''
           export PYTHONPATH="$PWD"
           export UV_CACHE_DIR="$PWD/.uv-cache"
-          export MYPY_CACHE_DIR="$PWD/.mypy_cache"
+          export PYREFLY_CACHE_DIR="$PWD/.pyrefly_cache"
         '';
       };
       
@@ -78,10 +78,10 @@
         checkCommand = "command -v ruff";
       };
       
-      mypy = mkLazyLoader {
-        name = "mypy";
-        packages = with pkgs; [mypy];
-        checkCommand = "command -v mypy";
+      pyrefly = mkLazyLoader {
+        name = "pyrefly";
+        packages = [];  # pyrefly installed via uv/pip
+        checkCommand = "command -v pyrefly";
       };
       
       # Rust tools

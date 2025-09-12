@@ -12,7 +12,8 @@
     # Development tools
     pkgs.uv
     pkgs.ruff
-    pkgs.mypy
+    # Note: pyrefly installed via uv/pip (not in nixpkgs yet)
+    # pkgs.pyrefly
     pkgs.python3Packages.ipython
     pkgs.python3Packages.jupyterlab
     # Version control and file watching

@@ -38,10 +38,10 @@
         components = ["rustc" "cargo" "clippy" "rustfmt" "rust-analyzer"];
       };
 
-      packages = inputs.self.lib.devenv.mkPackages {
-        base = sharedPackages.common;
-        language = rustPackages;
-      };
+      packages = let
+        inherit (inputs.nixpkgs.lib) concatLists;
+      in
+        concatLists [sharedPackages.common rustPackages];
 
       env = {
         RUST_BACKTRACE = "1";

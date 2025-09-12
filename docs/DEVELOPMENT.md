@@ -21,7 +21,7 @@ echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc    # for zsh
 
 ### Available Environments
 
-- **Python** - uv, ruff, mypy, bandit, coverage, pytest
+- **Python** - uv, ruff, pyrefly, bandit, coverage, pytest
 - **Rust** - cargo, clippy, rustfmt, rust-analyzer + dev tools
 - **Zig** - zig compiler, zls language server, debugging tools
 - **Julia** - julia interpreter, package manager, jupyter
@@ -68,7 +68,7 @@ direnv allow
 **Tools included:**
 - `uv` - Fast Python package manager
 - `ruff` - Fast linter and formatter
-- `mypy` - Static type checker
+- `pyrefly` - Static type checker
 - `bandit` - Security linter
 - `pytest` + `coverage` - Testing and coverage
 - `ipython`, `jupyterlab` - Interactive development
@@ -78,7 +78,7 @@ direnv allow
 py-init      # Initialize new Python project
 py-install   # Install dependencies with uv
 py-test      # Run tests with coverage
-py-lint      # Run linting (ruff, mypy, bandit)
+py-lint      # Run linting (ruff, pyrefly, bandit)
 py-format    # Format code with ruff
 py-clean     # Clean Python artifacts
 ```
