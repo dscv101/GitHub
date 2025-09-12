@@ -209,7 +209,7 @@ jobs:
           fi
           
           # Validate flake inputs are from trusted sources  
-          nix flake metadata --json > flake-meta.json
+          nix flake metadata --json "$PWD" > flake-meta.json
           untrusted_count=0
           while read -r owner repo; do
             case "$owner" in
@@ -235,7 +235,7 @@ jobs:
           echo "🏗️ Building NixOS configuration..."
           
           # Check if blazar config exists first
-          has_blazar=$(nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' || echo false)
+          has_blazar=$(nix eval --raw --expr "builtins.hasAttr \"blazar\" (builtins.getFlake \"$PWD\").nixosConfigurations" || echo false)
           if [[ "$has_blazar" != "true" ]]; then
             echo "ℹ️ No blazar configuration found, skipping build"
             exit 0
@@ -243,7 +243,7 @@ jobs:
           
           # Build system configuration with security restrictions
           nix build \
-            .#nixosConfigurations.blazar.config.system.build.toplevel \
+            "$PWD#nixosConfigurations.blazar.config.system.build.toplevel" \
             --show-trace \
             --option sandbox true \
             --option max-silent-time 600 \
@@ -278,13 +278,13 @@ jobs:
           echo "✅ Running validation checks..."
           
           # Check if checks are available
-          if ! nix eval --json .#checks.x86_64-linux >/dev/null 2>&1; then
+          if ! nix eval --json "$PWD#checks.x86_64-linux" >/dev/null 2>&1; then
             echo "ℹ️ No validation checks found, skipping"
             exit 0
           fi
           
           # Run all available checks
-          nix build .#checks.x86_64-linux --show-trace
+          nix build "$PWD#checks.x86_64-linux" --show-trace
           
           echo "✅ All checks passed"
 
@@ -294,7 +294,7 @@ jobs:
           echo "🔍 Running security scan..."
           
           # Check if blazar config exists first
-          has_blazar=$(nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' || echo false)
+          has_blazar=$(nix eval --raw --expr "builtins.hasAttr \"blazar\" (builtins.getFlake \"$PWD\").nixosConfigurations" || echo false)
           if [[ "$has_blazar" != "true" ]]; then
             echo "ℹ️ No blazar configuration found, skipping security scan"
             exit 0

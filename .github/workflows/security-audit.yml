@@ -66,7 +66,7 @@ jobs:
       - name: Check configuration exists
         id: check-config
         run: |
-          has_configs=$(nix eval --raw --expr 'builtins.hasAttr "nixosConfigurations" (builtins.getFlake ".")' || echo false)
+          has_configs=$(nix eval --raw --expr "builtins.hasAttr \"nixosConfigurations\" (builtins.getFlake \"$PWD\")" || echo false)
           if [[ "$has_configs" == "true" ]]; then
             echo "has-config=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
@@ -89,7 +89,7 @@ jobs:
           mkdir -p security-reports
           
           # Get flake metadata
-          nix flake metadata --json > security-reports/flake-metadata.json
+          nix flake metadata --json "$PWD" > security-reports/flake-metadata.json
           
           # Analyze input sources
           echo "## Dependency Source Analysis" > security-reports/dependency-audit.md

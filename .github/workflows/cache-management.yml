@@ -110,12 +110,12 @@ jobs:
           echo "🏗️ Building custom packages..."
           
           # Build all custom packages
-          if nix eval --json .#packages.x86_64-linux >/dev/null 2>&1; then
-            packages=$(nix eval --json .#packages.x86_64-linux | nix run nixpkgs#jq -- -r 'keys[]')
+          if nix eval --json "$PWD#packages.x86_64-linux" >/dev/null 2>&1; then
+            packages=$(nix eval --json "$PWD#packages.x86_64-linux" | nix run nixpkgs#jq -- -r 'keys[]')
             
             for package in $packages; do
               echo "Building package: $package"
-              nix build ".#packages.x86_64-linux.$package" \
+              nix build "$PWD#packages.x86_64-linux.$package" \
                 --print-build-logs \
                 --option sandbox true \
                 --option max-silent-time 600
@@ -165,18 +165,18 @@ jobs:
           
           # Build default devShell
           echo "Building default devShell..."
-          nix develop --no-pure-eval --command echo "Default shell built"
+          nix develop "$PWD" --no-pure-eval --command echo "Default shell built"
           
           # Build language-specific shells
           for shell in python rust zig julia; do
             echo "Building $shell devShell..."
-            if nix develop --no-pure-eval ".#$shell" --command echo "$shell shell built"; then
+            if nix develop "$PWD#$shell" --no-pure-eval --command echo "$shell shell built"; then
               echo "✅ $shell shell built successfully"
               
               # Push to cache if on main branch and secrets available
               if [[ "${{ github.ref }}" == "refs/heads/main" && "${{ needs.validate-cache-config.outputs.has-secrets }}" == "true" ]]; then
                 echo "Pushing $shell devShell to cache..."
-                nix develop ".#$shell" --command true
+                nix develop "$PWD#$shell" --command true
                 # Note: devShells are automatically cached by the build process
               fi
             else
