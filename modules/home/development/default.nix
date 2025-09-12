@@ -1,7 +1,8 @@
 {pkgs, ...}: {
   imports = [
     ./git.nix
-    ./jujutsu.nix
+    ./sapling.nix
+    ./watchman.nix
     ./vscode.nix
     ./python.nix
     ./databases.nix
@@ -14,5 +15,8 @@
     pkgs.mypy
     pkgs.python3Packages.ipython
     pkgs.python3Packages.jupyterlab
+    # Version control and file watching
+    pkgs.sapling
+    pkgs.watchman
   ];
 }

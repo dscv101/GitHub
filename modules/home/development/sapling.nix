@@ -1,5 +1,5 @@
 _: {
-  programs.jujutsu = {
+  programs.sapling = {
     enable = true;
     settings = {
       user = {
@@ -21,8 +21,8 @@ _: {
         amend = "amend -i";
         new = "new -m \"\"";
         mvup = "rebase -r @ -d @-";
-        sync = "!jj git fetch && jj rebase -r @ -d trunk()";
-        land = "!jj git push && gh pr create --fill --draft --web";
+        sync = "!sl git fetch && sl rebase -r @ -d trunk()";
+        land = "!sl git push && gh pr create --fill --draft --web";
       };
     };
   };
