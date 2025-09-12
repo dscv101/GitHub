@@ -34,7 +34,7 @@
       # containers.enable = false; # Commented out due to type mismatch
 
       packages = inputs.self.lib.devenv.mkPackages {
-        base = sharedPackages.traditional;
+        base = sharedPackages.common;
         language = juliaPackages;
       };
 
