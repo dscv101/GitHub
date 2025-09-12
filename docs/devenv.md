@@ -11,7 +11,7 @@ This repository provides multiple development environments using [devenv](https:
 nix develop --no-pure-eval
 
 # Language-specific environments
-nix develop --no-pure-eval .#python   # Python with uv, ruff, mypy
+nix develop --no-pure-eval .#python   # Python with uv, ruff, pyrefly
 nix develop --no-pure-eval .#rust     # Rust with cargo, clippy, rustfmt
 nix develop --no-pure-eval .#zig      # Zig with zls, debugging tools
 nix develop --no-pure-eval .#julia    # Julia with Jupyter, scientific libs
@@ -46,7 +46,7 @@ The default shell includes:
 
 Features:
 - **Python 3.12** with uv package manager
-- **Linting**: ruff, mypy, bandit
+- **Linting**: ruff, pyrefly, bandit
 - **Testing**: pytest, pytest-cov, coverage
 - **Development**: ipython, jupyterlab, black, isort
 - **Package Management**: pip-tools, virtualenv, pipx
@@ -55,7 +55,7 @@ Available commands:
 - `py-init` - Initialize new Python project
 - `py-install` - Install dependencies with uv
 - `py-test` - Run tests with coverage
-- `py-lint` - Run linting (ruff, mypy, bandit)
+- `py-lint` - Run linting (ruff, pyrefly, bandit)
 - `py-format` - Format code with ruff
 - `py-clean` - Clean Python artifacts
 

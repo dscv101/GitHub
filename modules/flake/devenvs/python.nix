@@ -7,7 +7,8 @@
 
       # Linting and formatting
       pkgs.ruff
-      pkgs.mypy
+      # Note: pyrefly will be installed via uv/pip as it's not in nixpkgs yet
+      # pkgs.pyrefly  # TODO: Add when available in nixpkgs
       pkgs.bandit
 
       # Testing and coverage
@@ -51,7 +52,7 @@
       env = {
         PYTHONPATH = "$PWD";
         UV_CACHE_DIR = "$PWD/.uv-cache";
-        MYPY_CACHE_DIR = "$PWD/.mypy_cache";
+        PYREFLY_CACHE_DIR = "$PWD/.pyrefly_cache";
         PYTEST_CACHE_DIR = "$PWD/.pytest_cache";
       };
 
@@ -60,7 +61,7 @@
         py-init.exec = ''
           echo "🐍 Initializing Python project..."
           uv init
-          uv add --dev pytest pytest-cov mypy ruff bandit
+          uv add --dev pytest pytest-cov pyrefly ruff bandit
           echo "✅ Python project initialized!"
         '';
 
@@ -77,7 +78,7 @@
         py-lint.exec = ''
           echo "🔍 Running Python linting..."
           uv run ruff check .
-          uv run mypy .
+          uv run pyrefly .
           uv run bandit -r .
         '';
 
@@ -92,7 +93,7 @@
           find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
           find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
           find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-          find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+          find . -type d -name ".pyrefly_cache" -exec rm -rf {} + 2>/dev/null || true
           find . -type d -name ".coverage" -exec rm -rf {} + 2>/dev/null || true
           find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
           echo "✅ Python artifacts cleaned!"
@@ -109,14 +110,14 @@
         echo "  py-init      - Initialize new Python project"
         echo "  py-install   - Install dependencies with uv"
         echo "  py-test      - Run tests with coverage"
-        echo "  py-lint      - Run linting (ruff, mypy, bandit)"
+        echo "  py-lint      - Run linting (ruff, pyrefly, bandit)"
         echo "  py-format    - Format code with ruff"
         echo "  py-clean     - Clean Python artifacts"
         echo ""
         echo "Direct tools:"
         echo "  uv           - Python package manager"
         echo "  ruff         - Fast Python linter/formatter"
-        echo "  mypy         - Static type checker"
+        echo "  pyrefly      - Static type checker"
         echo "  bandit       - Security linter"
         echo "  pytest       - Testing framework"
         echo ""

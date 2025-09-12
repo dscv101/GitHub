@@ -50,7 +50,7 @@ devenv shell --impure --expr '{
 ```bash
 devenv shell -- python -m pytest
 devenv shell -- black .
-devenv shell -- mypy .
+devenv shell -- pyrefly .
 ```
 
 ### Rust Projects

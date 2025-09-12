@@ -83,7 +83,7 @@
         name = "python-focused";
         description = "Python-focused development with minimal overhead";
         packages = sharedPackages.base ++ (with pkgs; [
-          python3 uv ruff mypy bandit
+          python3 uv ruff bandit  # pyrefly installed via uv/pip
           python3Packages.pytest python3Packages.pytest-cov
           python3Packages.ipython python3Packages.black python3Packages.isort
         ]);
