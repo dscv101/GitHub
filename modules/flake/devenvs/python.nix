@@ -44,7 +44,7 @@
       };
 
       packages = inputs.self.lib.devenv.mkPackages {
-        base = sharedPackages.common;
+        base = sharedPackages.traditional;
         language = pythonPackages;
       };
 
