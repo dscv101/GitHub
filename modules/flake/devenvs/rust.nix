@@ -39,7 +39,7 @@
       };
 
       packages = inputs.self.lib.devenv.mkPackages {
-        base = sharedPackages.traditional;
+        base = sharedPackages.common;
         language = rustPackages;
       };
 
