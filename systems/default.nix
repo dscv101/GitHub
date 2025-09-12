@@ -30,6 +30,9 @@
       ];
 
       specialArgs = {
+        # Only pass necessary inputs to avoid unnecessary evaluation
+        inherit (inputs) nixpkgs home-manager;
+        # Pass specific inputs that modules actually need
         inherit inputs;
       };
     };
