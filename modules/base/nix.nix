@@ -14,6 +14,9 @@ _: {
     # Build optimization
     cores = 0; # Use all available cores for parallel builds
     max-jobs = "auto"; # Automatically determine optimal number of parallel jobs
+    builders-use-substituters = true; # Allow builders to use substituters for faster builds
+    keep-outputs = true; # Keep build outputs for development workflow
+    keep-derivations = true; # Keep derivations for development and debugging
 
     substituters = [
       "https://cache.nixos.org"
@@ -41,5 +44,10 @@ _: {
     automatic = true;
     dates = "weekly";
     options = "--delete-older-than 14d";
+  };
+
+  # System auto-upgrade configuration
+  system.autoUpgrade = {
+    allowReboot = false; # Disable automatic reboots for safety
   };
 }
