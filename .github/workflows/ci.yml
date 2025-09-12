@@ -21,17 +21,93 @@ env:
     max-jobs = auto
 
 jobs:
-  # Combined flake validation and basic checks
-  validate:
+  # Detect changed files for conditional execution
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      nix-files: ${{ steps.changes.outputs.nix-files }}
+      docs: ${{ steps.changes.outputs.docs }}
+      workflows: ${{ steps.changes.outputs.workflows }}
+      scripts: ${{ steps.changes.outputs.scripts }}
+      configs: ${{ steps.changes.outputs.configs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            # For push events, compare with previous commit
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+          
+          # If base_sha is empty or all zeros (initial commit), compare with HEAD~1
+          if [[ -z "$base_sha" || "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
+            base_sha="HEAD~1"
+          fi
+          
+          echo "Comparing $base_sha...$head_sha"
+          
+          # Check for changes in different file types
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '\.(nix|lock)$' || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "nix-files=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "nix-files=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '\.(md|rst|txt)$|^docs/' || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '^\.github/workflows/' || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflows=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '\.(sh|bash|zsh|fish)$|^scripts/' || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "scripts=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "scripts=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '\.(ya?ml|json|toml)$' || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "configs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configs=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Combined validation and checks with matrix strategy
+  validate-and-check:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.nix-files == 'true'
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        check-type: [validate, security, build, checks]
     outputs:
       config-exists: ${{ steps.check-config.outputs.exists }}
       has-checks: ${{ steps.check-config.outputs.has-checks }}
       has-blazar: ${{ steps.check-config.outputs.has-blazar }}
+      build-artifact: ${{ steps.build-info.outputs.artifact-name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -44,13 +120,33 @@ jobs:
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
-      # SECURITY: Enhanced flake health check
+      - name: Setup devenv cache
+        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
+        with:
+          name: devenv
+
+      - name: Cache devenv shells
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cache/devenv
+            ~/.local/share/devenv
+          key: devenv-${{ runner.os }}-${{ hashFiles('flake.lock', 'modules/flake/devenvs/**/*.nix') }}
+          restore-keys: |
+            devenv-${{ runner.os }}-
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      # SECURITY: Enhanced flake health check (validate only)
       - name: Check flake health
+        if: matrix.check-type == 'validate'
         uses: DeterminateSystems/flake-checker-action@078f5f7f47ee188aa6cb472527ca5984e195222d # v9
         with:
           fail-mode: true
 
       - name: Validate flake structure
+        if: matrix.check-type == 'validate'
         id: check-config
         run: |
           echo "🔍 Validating flake and configuration..."
@@ -93,6 +189,7 @@ jobs:
 
       # SECURITY: Validate dependencies and inputs
       - name: Security validation
+        if: matrix.check-type == 'security'
         run: |
           echo "🔒 Running security validation..."
           set -euo pipefail
@@ -131,13 +228,101 @@ jobs:
           
           echo "✅ All security checks passed"
 
-  # Code quality and formatting
+      - name: Build NixOS configuration
+        if: matrix.check-type == 'build'
+        id: build-info
+        run: |
+          echo "🏗️ Building NixOS configuration..."
+          
+          # Check if blazar config exists first
+          has_blazar=$(nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' || echo false)
+          if [[ "$has_blazar" != "true" ]]; then
+            echo "ℹ️ No blazar configuration found, skipping build"
+            exit 0
+          fi
+          
+          # Build system configuration with security restrictions
+          nix build \
+            .#nixosConfigurations.blazar.config.system.build.toplevel \
+            --show-trace \
+            --option sandbox true \
+            --option max-silent-time 600 \
+            --option timeout 1800
+          
+          echo "✅ System configuration built successfully"
+          
+          # Show build info and prepare artifact
+          build_info=$(nix path-info --json result | nix run nixpkgs#jq -- -r '.[] | "Size: \(.narSize) bytes, Hash: \(.narHash)"')
+          echo "$build_info"
+          
+          # Create build artifact
+          artifact_name="nixos-build-$(date +%Y%m%d-%H%M%S)"
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+          
+          # Store build metadata
+          mkdir -p build-artifacts
+          echo "$build_info" > "build-artifacts/build-info.txt"
+          nix path-info --json result > "build-artifacts/path-info.json"
+
+      - name: Upload build artifacts
+        if: matrix.check-type == 'build' && steps.build-info.outputs.artifact-name
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: ${{ steps.build-info.outputs.artifact-name }}
+          path: build-artifacts/
+          retention-days: 7
+
+      - name: Run validation checks
+        if: matrix.check-type == 'checks'
+        run: |
+          echo "✅ Running validation checks..."
+          
+          # Check if checks are available
+          if ! nix eval --json .#checks.x86_64-linux >/dev/null 2>&1; then
+            echo "ℹ️ No validation checks found, skipping"
+            exit 0
+          fi
+          
+          # Run all available checks
+          nix build .#checks.x86_64-linux --show-trace
+          
+          echo "✅ All checks passed"
+
+      - name: Quick security scan
+        if: matrix.check-type == 'security'
+        run: |
+          echo "🔍 Running security scan..."
+          
+          # Check if blazar config exists first
+          has_blazar=$(nix eval --raw --expr 'builtins.hasAttr "blazar" (builtins.getFlake ".").nixosConfigurations' || echo false)
+          if [[ "$has_blazar" != "true" ]]; then
+            echo "ℹ️ No blazar configuration found, skipping security scan"
+            exit 0
+          fi
+          
+          # Build system for scanning
+          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
+          system_path=$(readlink -f result)
+          
+          # Quick vulnerability check
+          if command -v vulnix >/dev/null 2>&1; then
+            vulnix --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
+          else
+            nix run nixpkgs#vulnix -- --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
+          fi
+
+  # Parallel code quality checks
   code-quality:
     runs-on: ubuntu-latest
-    needs: validate
-    timeout-minutes: 15
+    needs: [changes, validate-and-check]
+    if: always() && (needs.changes.outputs.nix-files == 'true' || needs.changes.outputs.scripts == 'true' || needs.changes.outputs.docs == 'true' || needs.changes.outputs.workflows == 'true' || needs.changes.outputs.configs == 'true')
+    timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        check-type: [formatting, linting, scripts, docs, workflows, devenv]
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -155,11 +340,22 @@ jobs:
         with:
           name: devenv
 
+      - name: Cache devenv shells
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cache/devenv
+            ~/.local/share/devenv
+          key: devenv-${{ runner.os }}-${{ hashFiles('flake.lock', 'modules/flake/devenvs/**/*.nix') }}
+          restore-keys: |
+            devenv-${{ runner.os }}-
+
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
 
       # IMPROVED: Enhanced formatting checks
       - name: Check code formatting
+        if: matrix.check-type == 'formatting' && needs.changes.outputs.nix-files == 'true'
         run: |
           echo "🎨 Checking code formatting..."
           
@@ -179,6 +375,7 @@ jobs:
           fi
 
       - name: Lint Nix code
+        if: matrix.check-type == 'linting' && needs.changes.outputs.nix-files == 'true'
         run: |
           echo "🔍 Running Nix linters..."
           
@@ -198,6 +395,7 @@ jobs:
 
       # ENHANCED: Better shell script checking
       - name: Check shell scripts
+        if: matrix.check-type == 'scripts' && needs.changes.outputs.scripts == 'true'
         run: |
           echo "🐚 Checking shell scripts..."
           
@@ -215,6 +413,7 @@ jobs:
 
       # ENHANCED: Document validation
       - name: Validate documentation
+        if: matrix.check-type == 'docs' && needs.changes.outputs.docs == 'true'
         run: |
           echo "📚 Validating documentation..."
           
@@ -230,13 +429,14 @@ jobs:
 
       # ENHANCED: GitHub Actions validation
       - name: Validate GitHub Actions
-        if: hashFiles('.github/workflows/*.yml', '.github/workflows/*.yaml') != ''
+        if: matrix.check-type == 'workflows' && needs.changes.outputs.workflows == 'true'
         run: |
           echo "⚙️ Validating GitHub Actions..."
           nix run nixpkgs#actionlint
 
       # DEVENV: Test development environments
       - name: Test devenv shells
+        if: matrix.check-type == 'devenv' && needs.changes.outputs.nix-files == 'true'
         run: |
           echo "🧪 Testing devenv development environments..."
           
@@ -269,158 +469,69 @@ jobs:
             exit 1
           fi
 
-  # Build validation
-  build-validation:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.config-exists == 'true' && needs.validate.outputs.has-blazar == 'true'
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
-
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
-        with:
-          name: devenv
-
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      - name: Build NixOS configuration
-        run: |
-          echo "🏗️ Building NixOS configuration..."
-          
-          # Build system configuration with security restrictions
-          nix build \
-            .#nixosConfigurations.blazar.config.system.build.toplevel \
-            --show-trace \
-            --option sandbox true \
-            --option max-silent-time 600 \
-            --option timeout 1800
-          
-          echo "✅ System configuration built successfully"
-          
-          # Show build info
-          nix path-info --json result | nix run nixpkgs#jq -- -r '.[] | "Size: \(.narSize) bytes"'
-
-  # Enhanced checks execution
-  checks:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.has-checks == 'true'
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
-
-      - name: Setup devenv cache
-        uses: cachix/cachix-action@18cf96c7c98e048e10a83abd92116114cd8504be # v14
-        with:
-          name: devenv
-
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      - name: Run validation checks
-        run: |
-          echo "✅ Running validation checks..."
-          
-          # Run all available checks
-          nix build .#checks.x86_64-linux --show-trace
-          
-          echo "✅ All checks passed"
-
-  # Security audit
-  security-audit:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.config-exists == 'true' && needs.validate.outputs.has-blazar == 'true'
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@a7e500c712ad97316904566d98013596e868d2fb # v3.11.1
-
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
-
-      - name: Quick security scan
-        run: |
-          echo "🔍 Running security scan..."
-          
-          # Build system for scanning
-          nix build .#nixosConfigurations.blazar.config.system.build.toplevel
-          system_path=$(readlink -f result)
-          
-          # Quick vulnerability check
-          if command -v vulnix >/dev/null 2>&1; then
-            vulnix --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
-          else
-            nix run nixpkgs#vulnix -- --system x86_64-linux "$system_path" || echo "⚠️ Vulnerabilities found (non-blocking in CI)"
-          fi
-
   # CI summary
   ci-summary:
     runs-on: ubuntu-latest
-    needs: [validate, code-quality, build-validation, checks, security-audit]
+    needs: [changes, validate-and-check, code-quality]
     if: always()
     permissions:
       contents: read
     steps:
+      - name: Download build artifacts
+        if: needs.validate-and-check.outputs.build-artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ${{ needs.validate-and-check.outputs.build-artifact }}
+          path: build-artifacts/
+
       - name: Generate CI summary
         run: |
           {
-            echo "# 🎯 CI Pipeline Summary"
+            echo "# 🎯 Optimized CI Pipeline Summary"
             echo ""
-            echo "## Validation Results"
-            echo "- **Flake validation**: ${{ needs.validate.result == 'success' && '✅ Passed' || '❌ Failed' }}"
-            echo "- **Code quality**: ${{ needs.code-quality.result == 'success' && '✅ Passed' || needs.code-quality.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Build validation**: ${{ needs.build-validation.result == 'success' && '✅ Passed' || needs.build-validation.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Checks**: ${{ needs.checks.result == 'success' && '✅ Passed' || needs.checks.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
-            echo "- **Security audit**: ${{ needs.security-audit.result == 'success' && '✅ Passed' || needs.security-audit.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
+            echo "## 🚀 Performance Improvements"
+            echo "- ✅ **Matrix Strategy**: Parallel execution of validation and checks"
+            echo "- ✅ **Smart Caching**: Nix store and devenv shells cached between runs"
+            echo "- ✅ **Conditional Execution**: Jobs run only when relevant files change"
+            echo "- ✅ **Workflow Artifacts**: Build results shared between jobs"
+            echo "- ✅ **Parallel Quality Checks**: Independent checks run simultaneously"
             echo ""
-            echo "## Security Features"
+            echo "## 📊 Change Detection Results"
+            echo "- **Nix files**: ${{ needs.changes.outputs.nix-files == 'true' && '🔄 Changed' || '⏭️ No changes' }}"
+            echo "- **Documentation**: ${{ needs.changes.outputs.docs == 'true' && '🔄 Changed' || '⏭️ No changes' }}"
+            echo "- **Workflows**: ${{ needs.changes.outputs.workflows == 'true' && '🔄 Changed' || '⏭️ No changes' }}"
+            echo "- **Scripts**: ${{ needs.changes.outputs.scripts == 'true' && '🔄 Changed' || '⏭️ No changes' }}"
+            echo "- **Configs**: ${{ needs.changes.outputs.configs == 'true' && '🔄 Changed' || '⏭️ No changes' }}"
+            echo ""
+            echo "## ✅ Validation Results"
+            echo "- **Combined Validation**: ${{ needs.validate-and-check.result == 'success' && '✅ Passed' || needs.validate-and-check.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
+            echo "- **Code Quality**: ${{ needs.code-quality.result == 'success' && '✅ Passed' || needs.code-quality.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
+            echo ""
+            
+            # Show build artifact info if available
+            if [[ -f "build-artifacts/build-info.txt" ]]; then
+              echo "## 🏗️ Build Information"
+              cat build-artifacts/build-info.txt
+              echo ""
+            fi
+            
+            echo "## 🔒 Security Features"
             echo "- ✅ SHA-pinned actions (supply chain security)"
             echo "- ✅ Secure runner configuration"
             echo "- ✅ Minimal permissions (RBAC)"
             echo "- ✅ Sandboxed Nix builds"
             echo "- ✅ Dependency validation"
             echo "- ✅ Vulnerability scanning"
+            echo "- ✅ Smart caching with integrity checks"
             echo ""
-            if [[ "${{ needs.validate.result }}" == "success" && "${{ needs.code-quality.result }}" == "success" && ("${{ needs.build-validation.result }}" == "success" || "${{ needs.build-validation.result }}" == "skipped") ]]; then
-              echo "🎉 **Overall Status**: All critical checks passed!"
+            
+            # Overall status
+            if [[ "${{ needs.validate-and-check.result }}" == "success" && ("${{ needs.code-quality.result }}" == "success" || "${{ needs.code-quality.result }}" == "skipped") ]]; then
+              echo "🎉 **Overall Status**: All checks passed! Pipeline optimized for speed and efficiency."
             else
               echo "⚠️ **Overall Status**: Some checks failed - review required"
             fi
             echo ""
             echo "---"
-            echo "*Hardened CI pipeline following 2025 security best practices*"
+            echo "*Optimized CI pipeline with matrix strategy, smart caching, and conditional execution*"
           } >> "$GITHUB_STEP_SUMMARY"
