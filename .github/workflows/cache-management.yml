@@ -162,27 +162,11 @@ jobs:
       - name: Build and cache development shells
         run: |
           echo "🧪 Building development shells..."
-          
-          # Build default devShell
-          echo "Building default devShell..."
-          nix develop "$PWD" --no-pure-eval --command echo "Default shell built"
-          
-          # Build language-specific shells
-          for shell in python rust zig julia; do
-            echo "Building $shell devShell..."
-            if nix develop "$PWD#$shell" --no-pure-eval --command echo "$shell shell built"; then
-              echo "✅ $shell shell built successfully"
-              
-              # Push to cache if on main branch and secrets available
-              if [[ "${{ github.ref }}" == "refs/heads/main" && "${{ needs.validate-cache-config.outputs.has-secrets }}" == "true" ]]; then
-                echo "Pushing $shell devShell to cache..."
-                nix develop "$PWD#$shell" --command true
-                # Note: devShells are automatically cached by the build process
-              fi
-            else
-              echo "❌ $shell shell failed to build"
-            fi
-          done
+
+          # Note: Devenv shells are not exposed as flake outputs, so we skip building them
+          # They will be built on-demand when needed
+          echo "ℹ️ Skipping devenv shell builds - shells are built on-demand"
+          echo "✅ Development environment caching handled by devenv"
 
   # Build and cache system configurations
   cache-system:
