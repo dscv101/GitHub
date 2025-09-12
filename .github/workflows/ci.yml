@@ -163,7 +163,7 @@ jobs:
             echo "config-exists=true" >> "$GITHUB_OUTPUT"
             echo "✅ NixOS configurations found"
             echo "Available configs:"
-            nix eval --json --expr '(builtins.attrNames (builtins.getFlake ".").nixosConfigurations)' | nix run nixpkgs#jq -- -r '.[]' || true
+            nix eval --json --expr '(builtins.attrNames (builtins.getFlake ".").nixosConfigurations)' | jq -r '.[]' || true
           else
             echo "config-exists=false" >> "$GITHUB_OUTPUT"
             echo "ℹ️ No NixOS configurations found"
@@ -195,7 +195,7 @@ jobs:
           set -euo pipefail
           # Ensure jq is available via Nix
           if ! command -v jq >/dev/null 2>&1; then
-            jq() { nix run nixpkgs#jq -- "$@"; }
+            export PATH="$(nix build nixpkgs#jq --no-link --print-out-paths)/bin:$PATH"
           fi
           
           # Check for unsafe Nix features (fail only on allowBroken/allowInsecure)
@@ -219,7 +219,7 @@ jobs:
                 echo "⚠️ Untrusted: $owner/$repo"
                 ((untrusted_count++)) ;;
             esac
-          done < <(nix run nixpkgs#jq -- -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
+          done < <(jq -r '.locks.nodes[] | select(.original.owner) | "\(.original.owner) \(.original.repo)"' flake-meta.json)
           
           if [[ $untrusted_count -gt 0 ]]; then
             echo "❌ $untrusted_count untrusted inputs found"
